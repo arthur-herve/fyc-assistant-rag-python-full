@@ -73,6 +73,12 @@ class CheckStatusTest(unittest.TestCase):
         self.assertIsNone(report.embedding_model)
         self.assertIn("injoignable", report.issues[0])
         self.assertIsNotNone(report.index)
+        self.assertTrue(report.unverified)      # rien à refaire de connu, mais pas vérifié
+        self.assertFalse(report.up_to_date)
+
+    def test_unverified_is_not_claimed_when_something_must_be_redone(self):
+        report = status(build_index(), documents=DOCS + [make_document("c", "congés")], embedder=BrokenEmbedder())
+        self.assertFalse(report.unverified)
 
 
 if __name__ == "__main__":

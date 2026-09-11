@@ -32,17 +32,21 @@ def make_handler(container: Container, quiet: bool = False):
         server_version = "fyc-assistant/1"
 
         def do_GET(self):
-            if self.path == "/health":
-                manifest = container.index.manifest()
-                self._send(200, {
-                    "status": "ok",
-                    "index": manifest_to_dict(manifest) if manifest else None,
-                })
-            elif self.path == "/v1/status":
-                report = container.check_status.execute()
-                self._send(200 if report.up_to_date else 409, status_to_dict(report))
-            else:
-                self._send(404, {"error": {"code": "not_found", "message": self.path}})
+            try:
+                if self.path == "/health":
+                    manifest = container.index.manifest()
+                    self._send(200, {
+                        "status": "ok",
+                        "index": manifest_to_dict(manifest) if manifest else None,
+                    })
+                elif self.path == "/v1/status":
+                    report = container.check_status.execute()
+                    status = 200 if report.up_to_date else (503 if report.unverified else 409)
+                    self._send(status, status_to_dict(report))
+                else:
+                    self._send(404, {"error": {"code": "not_found", "message": self.path}})
+            except (ValueError, OSError) as error:   # corpus mal formé, prompt ou index illisible
+                self._error(500, "unreadable_state", str(error))
 
         def do_POST(self):
             try:

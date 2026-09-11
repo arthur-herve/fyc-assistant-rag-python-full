@@ -28,8 +28,16 @@ class OutputRulesTest(unittest.TestCase):
         self.assertIn("réponse dans une autre langue que le français", check.problems)
 
     def test_french_answer_with_a_few_english_words_is_accepted(self):
-        text = "Le salarié peut utiliser le compte personnel de formation, dit CPF, pour une formation en ligne [1]."
-        self.assertTrue(check_output(text).is_valid)
+        text = "Le salarié peut demander un « time off » ; the request is faite auprès du manager, dans les délais du passage [1]."
+        self.assertTrue(check_output(text).is_valid, check_output(text).problems)
+
+    def test_french_words_that_look_like_reasoning_markers_are_accepted(self):
+        for text in ("Le billet me semble clair : 25 jours calendaires de congé [1].",
+                     "Passage [1] et passage [2] répondent à cette question : oui, sous conditions."):
+            self.assertTrue(check_output(text).is_valid, check_output(text).problems)
+
+    def test_short_english_answer_is_rejected(self):
+        self.assertFalse(check_output("The answer is two days [1].").is_valid)
 
     def test_too_long_output_is_rejected(self):
         check = check_output("Le salarié a droit à des congés. " * 60, max_chars=500)

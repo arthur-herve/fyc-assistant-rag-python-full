@@ -1,0 +1,477 @@
+{
+  "name": "passage-2",
+  "created_at": "2026-09-11T17:32:26+00:00",
+  "configuration": {
+    "corpus": "service-public",
+    "embedding_model": "bge-m3",
+    "generation_model": "llama3-2-3b",
+    "splitter": {
+      "type": "paragraph",
+      "max_chars": 800,
+      "overlap_chars": 120,
+      "include_title": true
+    },
+    "top_k": 4,
+    "min_score": 0.65,
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "seed": null,
+    "prompt": "answer",
+    "index_id": "ce6ac963f0e1",
+    "embedding_model_id": "ollama:bge-m3@790764642607",
+    "generation_model_id": "ollama:llama3.2:3b@a80c4f17acd5",
+    "prompt_version": "v1+9cf8bd83"
+  },
+  "entries": [
+    {
+      "question_id": "sp-conges-acquis",
+      "user_id": "alice",
+      "question": "Combien de jours de congés payés acquiert-on par mois de travail ?",
+      "status": "answered",
+      "cited_documents": [
+        "F18260",
+        "F2931",
+        "F37482"
+      ],
+      "text": "Selon le passage [1], un salarié a droit à 2,5 jours ouvrables par mois de travail effectif (soit 30 jours ouvrables de congés annuels). \n\nCependant, pour les jours de congés payés acquis pendant l'arrêt maladie, la limite est de 2 jours ouvrables par mois (soit 24 jours ouvrables par an), selon le passage [4]. \n\nIl n'y a pas de mention claire dans les passages fournis de combien de jours de congés payés un salarié acquiert par mois de travail, mais il est mentionné que le nombre de jours de congés payés est arrondi au nombre immédiatement supérieur, selon le passage [2]. \n\nIl est donc difficile de répondre précisément à la question, car les passages fournis ne donnent pas de réponse claire et directe.",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-report",
+      "user_id": "alice",
+      "question": "Mes congés payés non pris à la fin de la période sont-ils perdus ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12410"
+      ],
+      "text": "Non, les congés payés non pris à la fin de la période de prise ne sont pas nécessairement perdus. En principe, il n'existe pas de droit au report des congés payés, mais il est possible de reporter les jours de congés acquis, non pris durant la période de prise de congés, du 1er mai au 31 octobre de l'année, en cas d'accord entre l'employeur et le salarié. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-fermeture",
+      "user_id": "alice",
+      "question": "Combien de jours au maximum peut durer la fermeture annuelle de l'entreprise pour congés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1016"
+      ],
+      "text": "La durée de la fermeture annuelle de l'entreprise pour congés ne peut pas dépasser 24 jours ouvrables [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-cdd",
+      "user_id": "alice",
+      "question": "Un salarié en CDD a-t-il droit aux congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2931"
+      ],
+      "text": "Oui, le salarié en CDD a droit aux congés payés, mais le montant de ces congés est calculé en fonction de la durée effective de son CDD et est arrondi au nombre immédiatement supérieur. Le salarié peut prendre ces congés acquis durant son CDD ultérieurement pendant son CDI. Le salarié en CDD bénéficie des mêmes avantages salariaux de l'entreprise que le salarié en CDI, notamment les congés payés. [1], [2], [3]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-demission",
+      "user_id": "alice",
+      "question": "Puis-je démissionner pendant mes congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2265"
+      ],
+      "text": "Oui, vous pouvez démissionner pendant votre congé de maternité. Vous devez avertir votre employeur par tout moyen, par oral ou par écrit, de votre volonté de démissionner. La rupture du contrat de travail s'effectue alors immédiatement [1].\n\nEn outre, il est préférable d'informer votre employeur par lettre avec RAR de votre volonté de démissionner pour prévenir tout litige [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-sans-solde",
+      "user_id": "alice",
+      "question": "Le congé sans solde est-il prévu par la loi ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10431"
+      ],
+      "text": "Non, le congé sans solde n'est pas prévu par la législation. [4] \n\nL'employeur n'est pas obligé d'accorder un congé sans solde, et il n'a pas à justifier la raison de son refus. [2] \n\nLe salarié doit demander à son employeur de pouvoir bénéficier de ce congé, et il n'existe pas de formalisme pour demander un congé sans solde. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-proche-aidant",
+      "user_id": "alice",
+      "question": "Combien de temps au maximum dure le congé de proche aidant sur l'ensemble d'une carrière ?",
+      "status": "answered",
+      "cited_documents": [
+        "F16920"
+      ],
+      "text": "Le congé de proche aidant ne peut pas dépasser 1 an sur l'ensemble de la carrière du salarié. [2]\n\nLe congé de proche aidant peut être renouvelé, mais la durée maximale du congé sur l'ensemble de la carrière du salarié est de 1 an. [2]\n\nLe congé de proche aidant peut être renouvelé, mais le congé ne peut pas dépasser 1 an sur l'ensemble de la carrière du salarié. [3]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-temps-partiel-min",
+      "user_id": "alice",
+      "question": "Quelle est la durée minimale hebdomadaire de travail d'un salarié à temps partiel ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1915",
+        "F32428"
+      ],
+      "text": "La durée minimale hebdomadaire de travail d'un salarié à temps partiel est de 24 heures par semaine, en l'absence de dispositions conventionnelles. Cependant, si le CDD de dépasse pas 7 jours, la durée minimale légale hebdomadaire est de moins de 24 heures par semaine. [1, 2, 4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-legale",
+      "user_id": "alice",
+      "question": "Quelle est la durée légale du travail par semaine pour un temps plein ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911"
+      ],
+      "text": "La durée légale de travail par semaine pour un temps plein est de 35 heures. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-max-jour",
+      "user_id": "alice",
+      "question": "Combien d'heures de travail effectif au maximum par jour ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911",
+        "F316"
+      ],
+      "text": "La durée maximale de travail effectif par jour est de 10 heures pour les salariés âgés d'au moins 18 ans, sauf dérogations. [1]\n\nLa durée maximale de travail effectif par jour est de 8 heures pour les jeunes de moins de 18 ans, et de 6 heures pour les salariés dans les secteurs des transports. [4]\n\nIl est important de noter que ces durées maximales peuvent être dérogées en cas d'urgence ou si une convention collective le prévoit.",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-heures-sup",
+      "user_id": "alice",
+      "question": "Quelle majoration s'applique aux huit premières heures supplémentaires de la semaine ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2391"
+      ],
+      "text": "Les huit premières heures supplémentaires de la semaine sont majorées de 25 % [1]. \n\nCes heures supplémentaires sont comptées séparément et sont majorées de 25 % pour les 8 premières heures supplémentaires travaillées dans la même semaine. \n\nCes taux de majoration sont fixés par la convention collective ou l'accord collectif d'entreprise ou l'accord de branche étendu.",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dimanche",
+      "user_id": "alice",
+      "question": "Est-on payé double quand on travaille le dimanche ?",
+      "status": "answered",
+      "cited_documents": [
+        "F13887"
+      ],
+      "text": "Non, on n'est pas payé double quand on travaille le dimanche. La loi n'impose pas le paiement obligatoire d'une majoration de salaire lorsqu'il travaille un dimanche, que ce soit occasionnellement ou chaque semaine [1]. Cependant, l'employeur peut décider de verser une majoration de salaire s'il le souhaite, et des dispositions conventionnelles ou collectives ou un accord de l'employeur peuvent prévoir une majoration de salaire [2].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-teletravail-volontaire",
+      "user_id": "alice",
+      "question": "Mon employeur peut-il m'imposer le télétravail ?",
+      "status": "answered",
+      "cited_documents": [
+        "F13851"
+      ],
+      "text": "Non, l'employeur ne peut pas m'imposer le télétravail sans mon accord, à moins que ce ne soit dans les cas de circonstances exceptionnelles (menace d'épidémie par exemple) ou de force majeure [1, 2, 4]. \n\nDans ces cas-là, l'employeur doit expliquer les motifs de son refus et peut imposer le télétravail sans mon accord, mais il doit le faire dans les conditions prévues par l'accord collectif ou la charte [1, 2]. \n\nEn revanche, si le télétravail est mis en place par accord collectif ou charte, l'employeur doit expliquer les motifs de son refus [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-paternite",
+      "user_id": "alice",
+      "question": "Combien de jours dure le congé de paternité et d'accueil de l'enfant ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12647",
+        "F3156"
+      ],
+      "text": "Le congé de paternité et d'accueil de l'enfant dure 25 jours calendaires pour une seule naissance ou accueil d'un enfant, et 32 jours calendaires pour une naissance ou accueil de plusieurs enfants. [1], [3]\n\nLe congé de paternité et d'accueil de l'enfant comporte également une période obligatoire de 4 jours calendaires qui doit être prise immédiatement à la suite du congé de naissance. [2], [3]\n\nLe salarié doit prendre son congé de paternité et d'accueil de l'enfant suite à son congé de naissance obligatoire. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-naissance",
+      "user_id": "alice",
+      "question": "Combien de jours dure le congé de naissance ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2266"
+      ],
+      "text": "La durée du congé de naissance est fixée à 3 jours ouvrables pour chaque naissance survenue au foyer, sauf si des dispositions conventionnelles le prévoient. [1, 3]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-maternite",
+      "user_id": "alice",
+      "question": "Quelle est la durée du congé de maternité pour un premier enfant ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2265"
+      ],
+      "text": "La durée du congé de maternité pour un premier enfant est de 16 semaines, composée de 6 semaines de congé prénatal et de 10 semaines de congé postnatal. [1]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-grossesse",
+      "user_id": "alice",
+      "question": "Suis-je obligée d'annoncer ma grossesse à mon employeur ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1144",
+        "F2775"
+      ],
+      "text": "Une salariée enceinte n'a pas l'obligation d'informer son employeur de son état de grossesse, mais elle peut le faire si elle le souhaite. Si elle le souhaite, elle peut révéler à tout moment à son employeur son état de grossesse. Lors de cette information, l'état de grossesse de la salariée devra être justifié par un certificat médical.\n\n[1], [2]\n\nIl est possible que l'employeur propose un aménagement du poste de travail si la salariée enceinte présente des risques pour sa santé ou celle de l'enfant. La salariée enceinte peut révéler à tout moment à son employeur son état de grossesse, et l'état de grossesse devra être justifié par un certificat médical lors de cette information.\n\n[1], [4]\n\nIl est possible que l'employeur propose un aménagement du poste de travail si la salariée enceinte présente des risques pour sa santé ou celle de l'enfant. La salariée enceinte peut révéler à tout moment à son employeur son état de grossesse, et l'état de grossesse devra être justifié par un certificat médical lors de cette information.\n\n[1], [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-cpf-montant",
+      "user_id": "alice",
+      "question": "De combien mon compte personnel de formation est-il alimenté chaque année ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10705"
+      ],
+      "text": "Selon les passages fournis, le compte personnel de formation (CPF) d'un salarié du secteur privé est alimenté de 800 € par année de travail, jusqu'à atteindre 8 000 € maximum. [2], [3], [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-stage-gratification",
+      "user_id": "alice",
+      "question": "À partir de quelle durée de stage la gratification est-elle obligatoire ?",
+      "status": "answered",
+      "cited_documents": [
+        "F16734"
+      ],
+      "text": "La gratification est obligatoire à partir de 2 mois consécutifs de stage, soit 44 jours à 7 heures par jour, au cours de la même année scolaire ou universitaire. [1, 3]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-pmsmp",
+      "user_id": "alice",
+      "question": "À quoi sert une période de mise en situation en milieu professionnel ?",
+      "status": "answered",
+      "cited_documents": [
+        "F14102"
+      ],
+      "text": "Une période de mise en situation en milieu professionnel (PMSMP) vous permet de tester vos choix d'orientation pour découvrir un métier ou un secteur d’activité. Elle vous permet de découvrir un métier ou un secteur d'activité [1]. Elle vise à découvrir un métier ou un secteur d'activité [3]. Elle vous permet de tester vos choix d'orientation pour découvrir un métier ou un secteur d’activité [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-arret-maladie-sorties",
+      "user_id": "alice",
+      "question": "Pendant un arrêt maladie, à quelles heures dois-je être présent à mon domicile ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12415"
+      ],
+      "text": "Si votre arrêt de travail prévoit des sorties autorisées avec restriction d'horaires, vous devez être présent à votre domicile de 9 h à 11 h et de 14 h à 16 h, y compris les samedis, dimanches et jours fériés [2, 3]. \n\nCependant, vous pouvez vous absenter de votre domicile en dehors de ces horaires, sauf si vous devez recevoir des soins ou passer des examens médicaux [1]. \n\nDans ce cas, le médecin indique sur l'arrêt de travail si vous pouvez exercer certaines activités en dehors de votre domicile [3].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-droit-retrait",
+      "user_id": "alice",
+      "question": "Puis-je être sanctionné si j'exerce mon droit de retrait face à un danger ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1136"
+      ],
+      "text": "Oui, si le salarié pense avoir un motif raisonnable de croire à un danger possible, il peut exercer valablement son droit de retrait [3]. Cependant, le salarié sanctionné ou licencié en raison de l'exercice de son droit de retrait peut contester la décision de l'employeur en saisissant le conseil de prud'hommes [3]. Le salarié ne peut pas être sanctionné ou licencié pour avoir exercé son droit de retrait de manière justifiée [3].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-titres-restaurant",
+      "user_id": "alice",
+      "question": "Quelle part de la valeur du titre-restaurant l'employeur doit-il financer ?",
+      "status": "answered",
+      "cited_documents": [
+        "F21059"
+      ],
+      "text": "L'employeur doit financer entre 50 % et 60 % de la valeur du titre-restaurant, tandis que le salarié doit financer entre 40 % et 50 % de la valeur du titre-restaurant [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-retraite-age",
+      "user_id": "alice",
+      "question": "À quel âge peut partir à la retraite un salarié né en 1970 ?",
+      "status": "answered",
+      "cited_documents": [
+        "F14043"
+      ],
+      "text": "Selon les informations fournies, un salarié né en 1970 peut partir en retraite à partir de 67 ans, car il est né après le 1er janvier 1969, qui est l'âge à partir duquel le salarié peut partir en retraite. [1]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-rh-age-minimum",
+      "user_id": "bruno",
+      "question": "À partir de quel âge peut-on embaucher un jeune ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1649"
+      ],
+      "text": "Il est possible de travailler dès l'âge de 16 ans, quel que soit le type de contrat (CDI, CDD, contrat temporaire). Tout mineur doit y être autorisé par son représentant légal (père ou mère, par exemple), sauf s'il est émancipé [1].\n\nIl est possible de travailler avant 16 ans dans certains secteurs, mais certaines activités professionnelles sont interdites avant 18 ans [1].\n\nIl est possible de commencer à travailler avant 16 ans dans certaines activités professionnelles, telles que dans une entreprise de spectacles, de cinéma, de radiophonie, de télévision, ou d'enregistrements sonores, ou en tant que mannequin [4].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-rh-abandon-poste",
+      "user_id": "bruno",
+      "question": "Quel délai minimum laisser à un salarié pour reprendre son poste après un abandon de poste ?",
+      "status": "answered",
+      "cited_documents": [
+        "F31209"
+      ],
+      "text": "Un salarié qui abandonne son poste dans le secteur privé doit reprendre son travail dans un délai de 15 jours calendaires après avoir été informé par l'employeur. Ce délai peut être fixé par l'employeur, mais il ne peut pas être inférieur à 15 jours. Si le salarié ne reprend pas son poste dans ce délai, il peut être sanctionné pour absence injustifiée. [1, 2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-rh-faute-simple",
+      "user_id": "bruno",
+      "question": "Un salarié licencié pour faute simple perçoit-il une indemnité de licenciement ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1137"
+      ],
+      "text": "Oui, le salarié perçoit une indemnité de licenciement s'il remplit les conditions d'ancienneté lui permettant d'en bénéficier [2].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-rh-promesse",
+      "user_id": "bruno",
+      "question": "Que risque l'employeur qui ne respecte pas une promesse d'embauche unilatérale ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10403"
+      ],
+      "text": "Si l'employeur ne respecte pas une promesse d'embauche unilatérale, il peut être considéré comme un licenciement injustifié (sans cause réelle et sérieuse) et vous pouvez contester cela auprès du conseil de prud'hommes [1]. De plus, le juge peut condamner l'employeur à vous verser des dommages et intérêts en raison du préjudice subi [1, 2, 3].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-rh-essai-renouvellement",
+      "user_id": "bruno",
+      "question": "La période d'essai d'un CDI peut-elle être renouvelée ?",
+      "status": "answered",
+      "cited_documents": [
+        "F13919"
+      ],
+      "text": "Non, la période d'essai d'un CDI n'est pas renouvelable, sauf si les 3 conditions suivantes sont réunies : [1], [2], [3] et [4].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dir-greve",
+      "user_id": "claire",
+      "question": "Quelles conditions doit réunir une grève pour être licite ?",
+      "status": "answered",
+      "cited_documents": [
+        "F117"
+      ],
+      "text": "Une grève doit réunir les 3 conditions suivantes pour être licite : arrêt total du travail, arrêt collectif du travail par l'ensemble des salariés grévistes et connaissance par l'employeur de revendications professionnelles. [1]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dir-prudhommes",
+      "user_id": "claire",
+      "question": "Par quelle étape commence une affaire devant le conseil de prud'hommes ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1052"
+      ],
+      "text": "Une affaire devant le conseil de prud'hommes commence par une requête auprès du CPH, qui est ensuite transmise au bureau de conciliation et d'orientation (BCO) pour une phase de conciliation. [1, 2] \n\nLe BCO convoque ensuite les parties à une séance de conciliation, où les explications des parties sont entendues et un procès-verbal est établi. [2] \n\nSi la conciliation n'a pas abouti, le différend entre dans une phase contentieuse et est transmis au bureau de jugement. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dir-inspection",
+      "user_id": "claire",
+      "question": "Quelles sont les missions de l'inspection du travail ?",
+      "status": "answered",
+      "cited_documents": [
+        "F107"
+      ],
+      "text": "L'inspection du travail peut jouer un rôle de médiateur dans un conflit entre un employeur et ses salariés, en tant que conciliateur, mais uniquement à la demande des parties. [3]\n\nL'inspection du travail peut également informer et conseiller les employeurs et les salariés sur leurs droits et obligations, ainsi que faciliter l'accès au droit et permettre un meilleur respect des lois et des règles. [1]\n\nEnfin, l'inspection du travail peut être contacter dans les situations où l'employeur a besoin d'informations ou de conseils sur une disposition prévue par la loi ou la convention collective applicable à l'entreprise, ou lorsqu'il souhaite améliorer le dialogue social dans son entreprise. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-acces-abandon-refuse",
+      "user_id": "alice",
+      "question": "Quel délai minimum laisser à un salarié pour reprendre son poste après un abandon de poste ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-acces-age-refuse",
+      "user_id": "claire",
+      "question": "À partir de quel âge peut-on embaucher un jeune ?",
+      "status": "answered",
+      "cited_documents": [
+        "F32700"
+      ],
+      "text": "Le CEJ est ouvert aux personnes de 16 à 25 ans inclus. Cela signifie que les jeunes de 16 ans peuvent être embauchés pour le CEJ. [1]",
+      "attempts": 2
+    },
+    {
+      "question_id": "sp-acces-greve-refuse",
+      "user_id": "alice",
+      "question": "Quelles conditions doit réunir une grève pour être licite ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-acces-prudhommes-refuse",
+      "user_id": "bruno",
+      "question": "Par quelle étape commence une affaire devant le conseil de prud'hommes ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-capitale",
+      "user_id": "alice",
+      "question": "Quelle est la capitale de l'Australie ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-recette",
+      "user_id": "alice",
+      "question": "Donne-moi une recette de tarte aux pommes.",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-permis",
+      "user_id": "alice",
+      "question": "Comment renouveler mon permis de conduire ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-parking",
+      "user_id": "alice",
+      "question": "Combien de places de parking vélo y a-t-il au siège ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-difficile-fonction-publique",
+      "user_id": "alice",
+      "question": "Combien de jours de congés annuels a un fonctionnaire territorial ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    },
+    {
+      "question_id": "sp-hors-difficile-impots",
+      "user_id": "alice",
+      "question": "Quand dois-je déclarer mes impôts sur le revenu ?",
+      "status": "no_relevant_source",
+      "cited_documents": [],
+      "text": "Je n'ai trouvé aucun document accessible qui réponde à cette question.",
+      "attempts": 0
+    }
+  ]
+}

@@ -38,7 +38,8 @@ def urllib_transport(timeout: float) -> Transport:
                 detail = json.loads(detail)["error"]["message"]
             except (ValueError, KeyError, TypeError):
                 pass
-            raise AIServiceError(f"Service IA : HTTP {error.code} — {detail}") from error
+            raise AIServiceError(f"Service IA : HTTP {error.code} — {detail}",
+                                 transient=error.code >= 500) from error
         except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
             raise AIServiceError(f"Service IA injoignable ({url}) : {error}") from error
 
@@ -48,7 +49,8 @@ def urllib_transport(timeout: float) -> Transport:
 def _require(payload: dict[str, Any], *keys: str) -> None:
     missing = [k for k in keys if k not in payload]
     if missing:
-        raise AIServiceError(f"Réponse du service IA incomplète, champs manquants : {missing}")
+        raise AIServiceError(f"Réponse du service IA incomplète, champs manquants : {missing}",
+                             transient=False)
 
 
 class HttpEmbedder:

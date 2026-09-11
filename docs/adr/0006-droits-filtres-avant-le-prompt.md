@@ -16,7 +16,7 @@ l'empreinte du corpus (un changement de droits = corpus modifié = réindexation
 
 ## Conséquences
 
-- Fuites mesurées : 0 sur 936 appels des bancs d'essai du 11/09.
+- Fuites mesurées : 0 sur 936 appels des bancs Solvéo et Service-Public du 11/09 (0 aussi sur les bancs qwen3 et de validation).
 - La règle vit dans le domaine et se teste sans IA ni réseau.
 - Nuance à enseigner : filtrer avant le prompt garantit la confidentialité, **pas le silence** :
   une fiche publique voisine peut fournir une réponse partielle à une question dont la vraie

@@ -5,8 +5,11 @@ complète `citations.py` (la forme des citations) par le fond : une réponse
 vide, trop longue, dans la mauvaise langue ou qui déverse un raisonnement
 n'est pas une réponse, même si elle contient « [1] ».
 
-Leçon du 11/09/2026 : le raisonnement en anglais de qwen3 (« Okay, let's see…
-passage [1]… ») avait passé la vérification des citations.
+Ces règles ne connaissent aucun modèle en particulier : l'application refuse
+toute forme de raisonnement déversé, quel qu'en soit le marqueur ; ce qui est
+propre à un modèle (balises, budget de réflexion) est neutralisé côté service
+IA. Leçon du 11/09/2026 : un raisonnement en anglais contenant « [1] » avait
+passé la vérification des citations.
 """
 
 from __future__ import annotations
@@ -15,9 +18,14 @@ import re
 from dataclasses import dataclass
 
 FRENCH_MARKERS = frozenset("le la les des une un du de et est pas pour vous votre dans par sur au aux".split())
-ENGLISH_MARKERS = frozenset("the is are and user let's okay this that with for question passage answer should".split())
-REASONING_MARKERS = ("<think>", "okay, let", "okay, so", "let me ", "the user is asking",
-                     "first, i need", "wait, ")
+ENGLISH_MARKERS = frozenset("the is are and user let's okay this that with for answer should".split())
+# Marqueurs génériques d'un raisonnement déversé : balise de réflexion, monologue en anglais.
+# Bornés par des mots : « le billet me semble clair » ne contient pas « let me ».
+_REASONING = re.compile(
+    r"</?think>|\b(?:okay|ok),\s+(?:let|so)\b|\blet me\b|\bthe user is asking\b"
+    r"|\bfirst,\s+i need\b|\bwait,\s",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -40,12 +48,11 @@ def check_output(text: str, max_chars: int = 1500) -> OutputCheck:
         return OutputCheck(("réponse vide",))
     if len(stripped) > max_chars:
         problems.append(f"réponse trop longue ({len(stripped)} caractères, {max_chars} au plus)")
-    lowered = stripped.lower()
-    found = [m for m in REASONING_MARKERS if m in lowered]
+    found = _REASONING.search(stripped)
     if found:
-        problems.append(f"raisonnement du modèle déversé dans la réponse (« {found[0].strip()} »)")
+        problems.append(f"raisonnement du modèle déversé dans la réponse (« {found.group(0).strip()} »)")
     words = _words(stripped)
-    if len(words) >= 8:
+    if len(words) >= 5:
         french = sum(w in FRENCH_MARKERS for w in words)
         english = sum(w in ENGLISH_MARKERS for w in words)
         if english > french and english >= 3:

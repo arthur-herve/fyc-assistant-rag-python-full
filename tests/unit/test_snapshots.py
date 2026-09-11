@@ -5,9 +5,10 @@ import unittest
 from assistant.application.ask_question import AskQuestion, AskSettings
 from assistant.application.index_corpus import IndexCorpus
 from assistant.application.ports import Snapshot, SnapshotEntry
+from assistant.application.errors import IndexNotBuiltError
 from assistant.application.snapshots import (
     IDENTICAL, MISSING, SOURCES_CHANGED, STATUS_CHANGED, TEXT_CHANGED,
-    RecordSnapshot, SnapshotQuestion, compare_snapshots,
+    InvalidSnapshotNameError, RecordSnapshot, SnapshotQuestion, compare_snapshots,
 )
 from assistant.domain.model import User
 from tests.fakes import (
@@ -48,6 +49,21 @@ class RecordSnapshotTest(unittest.TestCase):
         self.assertEqual(snapshot.configuration["embedding_model_id"], "fake-keywords")
         self.assertIn("index_id", snapshot.configuration)
         self.assertIs(store.load("ref"), snapshot)
+
+
+    def test_invalid_name_is_refused_before_any_question_is_asked(self):
+        generator = ScriptedGenerator("Deux jours [1].")
+        ask = AskQuestion(KeywordEmbedder(), FakeIndex(), generator, StaticPrompts())
+        with self.assertRaises(InvalidSnapshotNameError):
+            RecordSnapshot(ask, MemorySnapshotStore(), FixedClock(), {}).execute("../evil", QUESTIONS)
+        self.assertEqual(generator.requests, [])
+
+    def test_a_systematic_error_is_raised_not_recorded(self):
+        ask = AskQuestion(KeywordEmbedder(), FakeIndex(), ScriptedGenerator("x"), StaticPrompts())
+        store = MemorySnapshotStore()
+        with self.assertRaises(IndexNotBuiltError):
+            RecordSnapshot(ask, store, FixedClock(), {}).execute("ref", QUESTIONS)
+        self.assertEqual(store.names(), [])
 
 
 class CompareSnapshotsTest(unittest.TestCase):

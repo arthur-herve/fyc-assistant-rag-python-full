@@ -10,7 +10,7 @@ timeout_seconds = 300
 
 [corpus]
 directory = "corpus/solveo"   # 9 documents fictifs : tests et démarrage hors-ligne
-# directory = "corpus/service-public"   # 324 fiches réelles (voir config/app-ollama.toml)
+# directory = "corpus/service-public"   # 322 fiches réelles (voir config/app-ollama.toml)
 
 [index]
 path = "data/index.json"

@@ -22,8 +22,8 @@ Le service IA ne fait que deux choses : des vecteurs et du texte.
 - Le service IA reste sans état : on peut le redémarrer, le remplacer, le partager entre
   applications.
 - Coût : l'application doit envoyer tous les morceaux au service pour les vectoriser, et
-  refaire une recherche exhaustive en Python (≈ 0,3 s pour 3 500 morceaux : suffisant ici,
-  limite à nommer en S4.3).
+  refaire une recherche exhaustive en Python (≈ 0,1 s pour 3 500 morceaux, 0,3 s bout en bout avec
+  l'appel d'embeddings : suffisant ici, limite à nommer en S4.3).
 
 ## Écarté
 

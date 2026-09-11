@@ -115,6 +115,6 @@ comptez un ordre de grandeur de plus (non mesuré : à relever sur vos machines 
 ## Machine de référence du cours
 
 Les durées et les rapports de `eval/resultats/` ont été mesurés sur : Windows 11, AMD Ryzen 7
-5800H, 15 Go de RAM, NVIDIA RTX 3070 Laptop 8 Go, Ollama 0.34, Python 3.13. Les temps sans carte
+5800H, 15,4 Go de RAM, NVIDIA RTX 3070 Laptop 8 Go, Ollama 0.34, Python 3.13. Les temps sans carte
 graphique n'ont pas encore été mesurés ; le cours reste suivable, le mode hors-ligne couvre tout
 ce qui ne demande pas un vrai modèle.

@@ -17,9 +17,11 @@ from _commun import Experiment, drift_summary, parser
 
 def main() -> None:
     p = parser(__doc__.split("\n")[0])
-    p.add_argument("--runs", type=int, default=3, help="nombre de passages (défaut 3)")
+    p.add_argument("--runs", type=int, default=3, help="nombre de passages, au moins 2 (défaut 3)")
     p.add_argument("--seed", type=int, help="graine de génération (défaut : aucune)")
     args = p.parse_args()
+    if args.runs < 2:
+        raise SystemExit("--runs doit valoir au moins 2 : il faut deux passages pour mesurer une dérive")
     exp = Experiment("stabilite", args)
     if args.seed is not None:
         exp.config = replace(exp.config, seed=args.seed)

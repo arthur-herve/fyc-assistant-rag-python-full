@@ -29,12 +29,18 @@ class CachedEmbedder:
     un cache persistant devrait porter l'identifiant du modèle dans sa clé.
     """
 
-    def __init__(self, inner: Embedder) -> None:
+    def __init__(self, inner: Embedder, max_entries: int = 10_000) -> None:
         self._inner = inner
         self._queries: dict[str, EmbeddingBatch] = {}
         self._documents: dict[tuple[str, ...], EmbeddingBatch] = {}
+        self._max_entries = max_entries
         self.hits = 0
         self.misses = 0
+
+    def _remember(self, store: dict, key, batch: EmbeddingBatch) -> None:
+        if len(store) >= self._max_entries:
+            store.pop(next(iter(store)))  # le plus ancien sort
+        store[key] = batch
 
     def embed_query(self, text: str) -> EmbeddingBatch:
         if text in self._queries:
@@ -42,7 +48,7 @@ class CachedEmbedder:
             return self._queries[text]
         self.misses += 1
         batch = self._inner.embed_query(text)
-        self._queries[text] = batch
+        self._remember(self._queries, text, batch)
         return batch
 
     def embed_documents(self, texts: Sequence[str]) -> EmbeddingBatch:
@@ -52,7 +58,7 @@ class CachedEmbedder:
             return self._documents[key]
         self.misses += 1
         batch = self._inner.embed_documents(texts)
-        self._documents[key] = batch
+        self._remember(self._documents, key, batch)
         return batch
 
 
@@ -88,7 +94,7 @@ class LoggingGenerator:
         try:
             generation = self._inner.generate(request)
         except Exception as error:
-            self._log.warning("génération échouée après %.0f ms : %s",
+            self._log.warning("génération rejetée ou échouée après %.0f ms : %s",
                               (time.perf_counter() - start) * 1000, error)
             raise
         self._log.info("génération · %s · %d caractères · %.0f ms",
@@ -98,46 +104,51 @@ class LoggingGenerator:
 
 # --- Nouvelles tentatives ----------------------------------------------------
 
-def _retry(action: Callable[[], object], attempts: int, delay: float, sleep: Callable[[float], None]):
+def _retry(action: Callable[[], object], attempts: int, delay: float,
+           sleep: Callable[[float], None], logger: logging.Logger = log):
     last: Exception | None = None
     for attempt in range(attempts + 1):
         try:
             return action()
         except AIServiceError as error:
             last = error
+            if not error.transient:
+                raise  # modèle inconnu, requête refusée : réessayer ne changera rien
             if attempt < attempts:
-                log.warning("service IA en erreur (%s), nouvelle tentative %d/%d",
-                            error, attempt + 1, attempts)
+                logger.warning("service IA en erreur (%s), nouvelle tentative %d/%d",
+                               error, attempt + 1, attempts)
                 sleep(delay * (attempt + 1))
     assert last is not None
     raise last
 
 
 class RetryingEmbedder:
-    """Réessaie quand le service IA est injoignable ou en erreur (pas quand la
-    réponse est invalide : ce n'est pas un problème de transport)."""
+    """Réessaie quand le service IA est injoignable ou en erreur passagère (5xx),
+    pas quand la requête est refusée (4xx) ni quand la réponse est invalide."""
 
     def __init__(self, inner: Embedder, attempts: int = 1, delay_seconds: float = 0.5,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, logger: logging.Logger = log) -> None:
         self._inner = inner
         self._attempts = attempts
         self._delay = delay_seconds
         self._sleep = sleep
+        self._log = logger
 
     def embed_query(self, text: str) -> EmbeddingBatch:
-        return _retry(lambda: self._inner.embed_query(text), self._attempts, self._delay, self._sleep)
+        return _retry(lambda: self._inner.embed_query(text), self._attempts, self._delay, self._sleep, self._log)
 
     def embed_documents(self, texts: Sequence[str]) -> EmbeddingBatch:
-        return _retry(lambda: self._inner.embed_documents(texts), self._attempts, self._delay, self._sleep)
+        return _retry(lambda: self._inner.embed_documents(texts), self._attempts, self._delay, self._sleep, self._log)
 
 
 class RetryingGenerator:
     def __init__(self, inner: Generator, attempts: int = 1, delay_seconds: float = 0.5,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, logger: logging.Logger = log) -> None:
         self._inner = inner
         self._attempts = attempts
         self._delay = delay_seconds
         self._sleep = sleep
+        self._log = logger
 
     def generate(self, request: GenerationRequest) -> Generation:
-        return _retry(lambda: self._inner.generate(request), self._attempts, self._delay, self._sleep)
+        return _retry(lambda: self._inner.generate(request), self._attempts, self._delay, self._sleep, self._log)

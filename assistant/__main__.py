@@ -85,8 +85,12 @@ def main(argv: list[str] | None = None) -> int:
     p_bench.add_argument("--out", help="dossier de sortie (défaut : eval/resultats/<date>)")
 
     args = parser.parse_args(argv)
+    # Sortie en UTF-8 même redirigée vers un fichier (Windows encoderait en cp1252).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     # Le journal des décorateurs (composition.py) : INFO avec -v, sinon ASSISTANT_LOG.
-    level = "INFO" if getattr(args, "verbose", False) else os.environ.get("ASSISTANT_LOG", "WARNING")
+    level = "INFO" if getattr(args, "verbose", False) else os.environ.get("ASSISTANT_LOG", "WARNING").upper()
     logging.basicConfig(level=level, format="[%(name)s] %(message)s", stream=sys.stderr)
 
     try:
@@ -115,12 +119,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(status_to_dict(report), ensure_ascii=False, indent=2))
             else:
                 print(status_to_text(report))
-            return 0 if report.up_to_date else 2
+            if report.up_to_date:
+                return 0
+            return 3 if report.unverified else 2
         elif args.command == "snapshot":
             from assistant.application.snapshots import SnapshotQuestion, compare_snapshots
             from assistant.interface.benchmark import load_questions
             if args.snapshot_command == "record":
-                questions = load_questions(args.questions)[: args.limit or None]
+                questions = load_questions(_project_path(args.questions))[: args.limit or None]
                 snapshot = container.record_snapshot.execute(
                     args.name,
                     [SnapshotQuestion(q.id, config.user(q.user), q.question) for q in questions],
@@ -151,6 +157,20 @@ def main(argv: list[str] | None = None) -> int:
     except (ApplicationError, DomainError, UnknownUserError, LookupError, ValueError) as error:
         print(f"Erreur : {error}", file=sys.stderr)
         return 1
+    except OSError as error:
+        print(f"Erreur : fichier ou dossier inaccessible — {error}", file=sys.stderr)
+        return 1
+
+
+def _project_path(path: str) -> str:
+    """Un chemin relatif qui n'existe pas depuis le dossier courant est cherché depuis la racine du projet."""
+    from pathlib import Path
+
+    from assistant.composition import PROJECT_ROOT
+    candidate = Path(path)
+    if not candidate.is_absolute() and not candidate.exists() and (PROJECT_ROOT / path).exists():
+        return str(PROJECT_ROOT / path)
+    return path
 
 
 if __name__ == "__main__":

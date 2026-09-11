@@ -36,6 +36,11 @@ class StatusReport:
     def up_to_date(self) -> bool:
         return not self.issues
 
+    @property
+    def unverified(self) -> bool:
+        """Rien à refaire de connu, mais le modèle servi n'a pas pu être vérifié."""
+        return self.ai_service_error is not None and len(self.issues) == 1
+
 
 class CheckStatus:
     def __init__(

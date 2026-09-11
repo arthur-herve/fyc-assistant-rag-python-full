@@ -4,7 +4,7 @@ Durée indicative : 1 h de travail, 30 min de correction commentée en vidéo (S
 
 ## Situation
 
-Un collègue a écrit en un après-midi `depart/assistant_rag.py` : un assistant RAG de 230 lignes
+Un collègue a écrit en un après-midi `depart/assistant_rag.py` : un assistant RAG d'environ 220 lignes
 qui répond aux questions des salariés à partir des fiches Markdown de `depart/corpus/`, avec des
 fiches réservées aux RH et à la direction. **Il fonctionne** (essayez-le), il est en production
 sur l'intranet, et trois demandes arrivent :

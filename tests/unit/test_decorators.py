@@ -19,6 +19,9 @@ from tests.fakes import (
 )
 
 REQUEST = GenerationRequest("système", "Passages :\n[1] x\n\nQuestion : ?", 0.2, 100)
+SILENT = logging.getLogger("test.silencieux")
+SILENT.addHandler(logging.NullHandler())
+SILENT.propagate = False
 ALICE = User("alice", frozenset({"tous"}))
 LEAK = ("Okay, let's see. The user is asking about remote work. The passage [1] says "
         "two days per week, so the answer should be two days.")
@@ -94,14 +97,28 @@ class RetryingTest(unittest.TestCase):
     def test_retries_on_ai_service_error_then_succeeds(self):
         inner = FlakyGenerator(failures=1)
         slept: list[float] = []
-        generator = RetryingGenerator(inner, attempts=1, delay_seconds=0.5, sleep=slept.append)
+        generator = RetryingGenerator(inner, attempts=1, delay_seconds=0.5, sleep=slept.append,
+                                      logger=SILENT)
         self.assertEqual(generator.generate(REQUEST).text, "Deux jours [1].")
         self.assertEqual(inner.calls, 2)
         self.assertEqual(slept, [0.5])
 
+    def test_does_not_retry_a_refused_request(self):
+        class Refusing:
+            calls = 0
+
+            def generate(self, request):
+                self.calls += 1
+                raise AIServiceError("HTTP 404 — modèle inconnu", transient=False)
+
+        inner = Refusing()
+        with self.assertRaises(AIServiceError):
+            RetryingGenerator(inner, attempts=3, sleep=lambda _: None, logger=SILENT).generate(REQUEST)
+        self.assertEqual(inner.calls, 1)
+
     def test_gives_up_after_the_configured_attempts(self):
         inner = FlakyGenerator(failures=5)
-        generator = RetryingGenerator(inner, attempts=2, sleep=lambda _: None)
+        generator = RetryingGenerator(inner, attempts=2, sleep=lambda _: None, logger=SILENT)
         with self.assertRaises(AIServiceError):
             generator.generate(REQUEST)
         self.assertEqual(inner.calls, 3)
@@ -118,7 +135,7 @@ class RetryingTest(unittest.TestCase):
                     raise AIServiceError("injoignable")
                 return super().embed_query(text)
 
-        embedder = RetryingEmbedder(Flaky(), attempts=1, sleep=lambda _: None)
+        embedder = RetryingEmbedder(Flaky(), attempts=1, sleep=lambda _: None, logger=SILENT)
         self.assertEqual(embedder.embed_query("télétravail").dimension, 8)
 
 
@@ -132,6 +149,13 @@ class LoggingTest(unittest.TestCase):
 
 
 class CompositionTest(unittest.TestCase):
+    def test_status_uses_the_raw_embedder_not_the_cache(self):
+        """Un cache d'embeddings masquerait un changement de modèle servi (revue du 11/09)."""
+        import inspect
+
+        from assistant import composition
+        self.assertIn("CheckStatus(source, splitter, raw_embedder", inspect.getsource(composition.build))
+
     def test_decorators_are_stacked_from_configuration_only(self):
         embedder, generator = decorate(KeywordEmbedder(), ScriptedGenerator("x"), {})
         self.assertIsInstance(generator, OutputValidatingGenerator)   # règle métier : activée par défaut

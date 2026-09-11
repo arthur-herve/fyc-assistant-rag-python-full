@@ -12,14 +12,21 @@ Idée reprise des explorations d'AssistantQR, réécrite derrière un port.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Sequence
 
 from assistant.domain.model import User
 
 from .ask_question import AskQuestion
-from .errors import ApplicationError
 from .ports import Clock, Snapshot, SnapshotEntry, SnapshotStore
+
+SNAPSHOT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+class InvalidSnapshotNameError(ValueError):
+    def __init__(self, name: str) -> None:
+        super().__init__(f"nom d'instantané invalide : {name!r} (lettres, chiffres, . _ - ; 64 caractères au plus)")
 
 
 @dataclass(frozen=True)
@@ -38,14 +45,14 @@ class RecordSnapshot:
         self._configuration = dict(configuration)
 
     def execute(self, name: str, questions: Sequence[SnapshotQuestion]) -> Snapshot:
+        if not SNAPSHOT_NAME.match(name):
+            raise InvalidSnapshotNameError(name)   # avant de poser la moindre question
         entries: list[SnapshotEntry] = []
         configuration = dict(self._configuration)
         for q in questions:
-            try:
-                answer = self._ask.execute(q.user, q.question)
-            except ApplicationError as error:
-                entries.append(SnapshotEntry(q.id, q.user.id, q.question, "error", (), str(error)))
-                continue
+            # Une erreur (index absent, modèle incompatible, service IA en panne) est
+            # systématique : on l'annonce plutôt que d'enregistrer N entrées en erreur.
+            answer = self._ask.execute(q.user, q.question)
             trace = answer.trace
             # Les identifiants concrets ne sont connus qu'après un appel : on les relève.
             configuration.setdefault("index_id", trace.index_id)

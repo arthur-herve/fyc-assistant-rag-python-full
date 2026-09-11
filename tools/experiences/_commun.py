@@ -50,6 +50,8 @@ class Experiment:
         # Instantanés et index de l'expérience restent dans son dossier.
         self.config = replace(base, snapshots_dir=self.out / "instantanes")
         self.questions: list[EvalQuestion] = load_questions(args.questions)[: args.limit or None]
+        if not self.questions:
+            raise SystemExit(f"aucune question dans {args.questions}")
         self.lines: list[str] = [f"# Expérience « {name} » — {datetime.now():%Y-%m-%d %H:%M}", ""]
         self.log(f"Configuration `{args.config}` · {len(self.questions)} questions de `{args.questions}` · "
                  f"corpus `{self.config.corpus_dir.name}`.")
@@ -104,6 +106,10 @@ class Experiment:
 
     def table(self, rows: dict[str, dict[str, Any]]) -> None:
         """rows : {libellé de colonne: {métrique: valeur}} → tableau métriques × colonnes."""
+        if not rows:
+            self.log("(rien à comparer)")
+            self.log("")
+            return
         columns = list(rows)
         metrics = list(next(iter(rows.values())))
         self.log("| | " + " | ".join(columns) + " |")

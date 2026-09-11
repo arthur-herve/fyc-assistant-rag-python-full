@@ -54,6 +54,7 @@ def manifest_to_dict(manifest: IndexManifest) -> dict[str, Any]:
 def status_to_dict(report: StatusReport) -> dict[str, Any]:
     return {
         "up_to_date": report.up_to_date,
+        "unverified": report.unverified,
         "issues": list(report.issues),
         "index": manifest_to_dict(report.index) if report.index else None,
         "corpus": {"documents": report.corpus_documents, "fingerprint": report.corpus_fingerprint},
@@ -85,6 +86,9 @@ def status_to_text(report: StatusReport) -> str:
     lines.append("")
     if report.up_to_date:
         lines.append("Verdict    : à jour, l'index est cohérent avec le corpus, le découpage et le modèle servi.")
+    elif report.unverified:
+        lines.append("Verdict    : NON VÉRIFIÉ (corpus et découpage cohérents, modèle servi inconnu)")
+        lines += [f"  - {issue}" for issue in report.issues]
     else:
         lines.append("Verdict    : À REFAIRE")
         lines += [f"  - {issue}" for issue in report.issues]

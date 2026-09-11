@@ -10,7 +10,7 @@ On montre l'erreur, on réindexe, puis on mesure ce qui a bougé.
 from __future__ import annotations
 
 from _commun import Experiment, drift_summary, parser
-from assistant.application.errors import IndexModelMismatchError
+from assistant.application.errors import AIServiceError, IndexModelMismatchError
 
 
 def main() -> None:
@@ -31,6 +31,8 @@ def main() -> None:
             exp.config.user(exp.questions[0].user), exp.questions[0].question)
     except IndexModelMismatchError as error:
         mismatch = str(error)
+    except AIServiceError as error:
+        raise SystemExit(f"le service IA ne sert pas « {args.other} » : {error}")
     print("  sans réindexer :", mismatch or "AUCUNE ERREUR (inattendu)")
 
     # 2. Réindexation, puis mêmes questions.

@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -133,6 +134,16 @@ class JsonSnapshotStoreTest(unittest.TestCase):
     def test_rejects_names_that_could_escape_the_directory(self):
         with self.assertRaises(ValueError):
             JsonSnapshotStore("x").load("../autre")
+
+    def test_ignores_unknown_fields_written_by_a_newer_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "futur.json"
+            path.write_text(json.dumps({"name": "futur", "created_at": "t", "configuration": {},
+                                        "entries": [{"question_id": "q", "user_id": "a", "question": "?",
+                                                     "status": "answered", "cited_documents": ["d"],
+                                                     "text": "x", "attempts": 1, "nouveau_champ": 42}]}),
+                            encoding="utf-8")
+            self.assertEqual(JsonSnapshotStore(tmp).load("futur").entries[0].cited_documents, ("d",))
 
 
 class SystemClockTest(unittest.TestCase):

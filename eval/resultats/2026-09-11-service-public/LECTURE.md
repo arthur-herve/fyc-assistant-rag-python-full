@@ -60,7 +60,8 @@ python -m assistant benchmark --config config/app-ollama.toml --questions eval/q
 
 6. **Un vrai corpus change les ordres de grandeur.** Latence médiane de `llama3.2:3b` : 1,6 à
    1,7 s (contre 0,5 s sur Solvéo) parce que les passages sont plus longs ; indexation en minutes
-   et non en secondes ; 229 à 329 ms de recherche exhaustive en Python pur sur 3 505 vecteurs —
+   et non en secondes ; 229 à 329 ms par question avec le générateur extractif (appel d'embeddings
+   compris ; la recherche exhaustive seule sur 3 505 vecteurs prend ≈ 93 ms, mesuré sans modèle) —
    encore acceptable, mais c'est la limite au-delà de laquelle l'index JSON devient un vrai
    sujet (S4.3).
 

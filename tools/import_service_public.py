@@ -12,7 +12,7 @@ Les droits d'accès sont une SIMULATION pédagogique : les fiches sont publiques
 mais le fil rouge joue un intranet d'entreprise où certains dossiers (recrutement,
 licenciement, rupture, conflits du travail) sont réservés aux RH ou à la direction.
 Le tableau DOSSIERS ci-dessous est la seule règle ; il est documenté dans
-corpus/service-public/README.md.
+corpus/README.md.
 
 Usage, depuis la racine du projet :
 
@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import shutil
 import sys
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -215,14 +214,21 @@ def import_archive(archive: Path, out_dir: Path, limit: int | None = None) -> li
     if limit:
         fiches = fiches[:limit]
     if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True)
+        others = [p.name for p in out_dir.iterdir() if p.suffix != ".md" or not p.name.startswith("F")]
+        if others:
+            raise SystemExit(f"{out_dir} contient autre chose que des fiches importées ({others[:3]}…) : "
+                             "choisir un dossier dédié avec --out")
+        for old in out_dir.glob("F*.md"):
+            old.unlink()
+    out_dir.mkdir(parents=True, exist_ok=True)
     for fiche in fiches:
         (out_dir / f"{fiche.id}.md").write_text(to_markdown(fiche), encoding="utf-8", newline="\n")
     return fiches
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--archive", default="vosdroits-latest.zip",
                         help="archive XML de la DILA (défaut : vosdroits-latest.zip)")

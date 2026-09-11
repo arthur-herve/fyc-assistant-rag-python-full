@@ -38,7 +38,11 @@ class _OllamaModel:
                             break
                 except BackendError:
                     pass
-                self._model_id = f"ollama:{self.model}" + (f"@{digest}" if digest else "")
+                if not digest:
+                    # Ollama n'a pas répondu (chargement en cours ?) : on réessaiera au prochain
+                    # appel plutôt que de figer un identifiant sans empreinte pour tout le processus.
+                    return f"ollama:{self.model}"
+                self._model_id = f"ollama:{self.model}@{digest}"
             return self._model_id
 
 
@@ -86,6 +90,8 @@ class OllamaGenerationBackend(_OllamaModel):
         self.keep_alive = keep_alive
 
     def generate(self, system, prompt, temperature, max_tokens, seed):
+        # Le budget de réflexion s'ajoute à max_tokens : la réponse peut donc dépasser
+        # max_tokens si le modèle réfléchit peu (assumé, documenté dans docs/contrat-http.md).
         options = {"temperature": temperature, "num_predict": max_tokens + self.thinking_tokens}
         if seed is not None:
             options["seed"] = seed

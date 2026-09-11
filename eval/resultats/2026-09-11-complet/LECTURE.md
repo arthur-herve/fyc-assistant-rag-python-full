@@ -25,8 +25,8 @@ Les chiffres bruts sont dans `rapport.md`, `synthese.json` et `resultats.csv`.
    Même générateur `llama3.2:3b` : 24 % de réponses non sourcées derrière `nomic`, 3 % derrière
    `bge-m3`. Derrière `nomic`, les questions hors corpus atteignent le modèle (seuil trop bas) ; il
    répond alors « les passages ne permettent pas de répondre » sans citer, et la règle métier
-   « pas de réponse non sourcée » prend le relais. La garde-fou déterministe a servi ; elle n'aurait
-   pas dû être sollicitée.
+   « pas de réponse non sourcée » prend le relais. Le garde-fou déterministe a servi ; il n'aurait
+   pas dû être sollicité.
 
 3. **Changer de générateur est une ligne de configuration… et 20 fois plus de latence (S3.3, S4.1).**
    `llama3.2:3b` répond en 0,5 à 0,8 s (médiane), `qwen3:4b` en 13 à 20 s, avec un p90 à 60-80 s
@@ -40,8 +40,8 @@ Les chiffres bruts sont dans `rapport.md`, `synthese.json` et `resultats.csv`.
    la vérification déterministe des citations l'a accepté, et le banc affichait 100 % de bonnes
    sources. La correction est dans `ai_service/backends/ollama.py` (réflexion activée, renvoyée à
    part par Ollama, budget de jetons séparé). Leçon : une vérification de forme n'est pas une
-   vérification de fond ; la validation de schéma de la sortie (lot D) doit refuser une réponse
-   dans la mauvaise langue ou trop longue.
+   vérification de fond ; depuis, le décorateur de validation (ADR 0008, `domain/output_rules.py`)
+   refuse une réponse dans la mauvaise langue, trop longue ou qui raisonne.
 
 5. **Le non-déterminisme se mesure (S3.1).** Stabilité 0,93 (nomic + llama) et 0,99 (bge-m3 + llama)
    : sur 3 passages, une même question change de statut ou de sources dans 1 à 7 % des cas, à

@@ -255,7 +255,7 @@ def run_benchmark(config: AppConfig, embedding_models: list[str], generation_mod
     _write_csv(rows, out_dir / "resultats.csv")
     (out_dir / "synthese.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    prompt_version = build(config).prompts.get("answer").version
+    prompt_version = build(config).prompts.get(config.prompt_name).version
     splitter = {**config.splitter, **(splitter_overrides or {})}
     (out_dir / "rapport.md").write_text(
         _report(summary, runs, len(questions), prompt_version, splitter, config),

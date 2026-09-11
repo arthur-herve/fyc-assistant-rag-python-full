@@ -56,6 +56,8 @@ le verdict « le générateur est un détail », et sa limite : il change quand 
 
 `status` ne remplace pas la vérification à chaque question : un service IA peut changer de
 modèle entre deux appels. Il sert avant une démonstration, un déploiement ou un banc d'essai.
+Il interroge le service IA **sans passer par le cache d'embeddings** : un cache est lui-même un
+artefact lié au modèle, il masquerait un changement de modèle servi.
 
 ## La réindexation, équivalent RAG du réentraînement
 

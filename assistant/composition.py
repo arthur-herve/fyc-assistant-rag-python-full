@@ -16,7 +16,7 @@ from typing import Any
 from assistant.application.ask_question import AskQuestion, AskSettings
 from assistant.application.guards import OutputValidatingGenerator
 from assistant.application.index_corpus import IndexCorpus
-from assistant.application.ports import Embedder, Generator
+from assistant.application.ports import Embedder, Generator, SnapshotStore
 from assistant.application.snapshots import RecordSnapshot
 from assistant.application.status import CheckStatus
 from assistant.domain.model import User
@@ -107,7 +107,7 @@ class Container:
     ask_question: AskQuestion
     check_status: CheckStatus
     record_snapshot: RecordSnapshot
-    snapshots: JsonSnapshotStore
+    snapshots: SnapshotStore
     index: JsonVectorIndex
     embedder: Embedder
     prompts: FilePromptRepository
@@ -122,8 +122,10 @@ def build(config: AppConfig, embedding_model: str | None = None,
     embedding_model = embedding_model or config.embedding_model
     generation_model = generation_model or config.generation_model
 
+    # L'adaptateur nu sert à `status` : un cache d'embeddings masquerait un changement de modèle servi.
+    raw_embedder = HttpEmbedder(config.ai_base_url, embedding_model, config.timeout)
     embedder, generator = decorate(
-        HttpEmbedder(config.ai_base_url, embedding_model, config.timeout),
+        raw_embedder,
         HttpGenerator(config.ai_base_url, generation_model, config.timeout),
         config.decorators,
     )
@@ -156,7 +158,7 @@ def build(config: AppConfig, embedding_model: str | None = None,
         prompts=prompts,
         settings=settings,
     )
-    check_status = CheckStatus(source, splitter, embedder, index, prompts, settings.prompt_name)
+    check_status = CheckStatus(source, splitter, raw_embedder, index, prompts, settings.prompt_name)
     snapshots = JsonSnapshotStore(config.snapshots_dir)
     # Empreinte de configuration d'un instantané : tout ce qui change les réponses.
     configuration = {
@@ -181,9 +183,10 @@ def decorate(embedder: Embedder, generator: Generator,
     """Empile les décorateurs choisis dans `[decorators]` (séquence 4.1).
 
     Ordre, de l'intérieur vers l'extérieur : nouvelles tentatives (au plus près
-    du réseau), journal, cache (pour ne pas journaliser les réponses servies
-    depuis le cache), validation de la sortie (règle métier, au plus près du
-    cas d'usage). Les cas d'usage ne voient que les ports.
+    du réseau), journal des embeddings, cache (pour ne pas journaliser les
+    réponses servies depuis le cache), validation de la sortie (règle métier),
+    puis journal des générations (pour voir aussi les rejets). Les cas d'usage
+    ne voient que les ports.
     """
     retries = int(options.get("retries", 0))
     if retries > 0:
@@ -191,9 +194,10 @@ def decorate(embedder: Embedder, generator: Generator,
         generator = RetryingGenerator(generator, attempts=retries)
     if options.get("log", False):
         embedder = LoggingEmbedder(embedder)
-        generator = LoggingGenerator(generator)
     if options.get("cache_embeddings", False):
         embedder = CachedEmbedder(embedder)
     if options.get("validate_output", True):
         generator = OutputValidatingGenerator(generator, int(options.get("max_output_chars", 1500)))
+    if options.get("log", False):
+        generator = LoggingGenerator(generator)  # journalise aussi les rejets de la validation
     return embedder, generator

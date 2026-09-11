@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 
 from assistant.application.ports import Snapshot, SnapshotEntry
+from assistant.application.snapshots import SNAPSHOT_NAME, InvalidSnapshotNameError
 
-_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_ENTRY_FIELDS = {f.name for f in fields(SnapshotEntry)}
 
 
 class SnapshotNotFoundError(LookupError):
@@ -21,8 +21,8 @@ class JsonSnapshotStore:
         self._directory = Path(directory)
 
     def _path(self, name: str) -> Path:
-        if not _NAME.match(name):
-            raise ValueError(f"nom d'instantané invalide : {name!r} (lettres, chiffres, . _ -)")
+        if not SNAPSHOT_NAME.match(name):
+            raise InvalidSnapshotNameError(name)
         return self._directory / f"{name}.json"
 
     def save(self, snapshot: Snapshot) -> None:
@@ -37,7 +37,9 @@ class JsonSnapshotStore:
             raise SnapshotNotFoundError(f"instantané introuvable : {name} (connus : {self.names()})")
         data = json.loads(path.read_text(encoding="utf-8"))
         entries = tuple(
-            SnapshotEntry(**{**e, "cited_documents": tuple(e["cited_documents"])})
+            # Les champs inconnus (instantané écrit par une version plus récente) sont ignorés.
+            SnapshotEntry(**{**{k: v for k, v in e.items() if k in _ENTRY_FIELDS},
+                             "cited_documents": tuple(e["cited_documents"])})
             for e in data["entries"]
         )
         return Snapshot(data["name"], data["created_at"], data.get("configuration", {}), entries)

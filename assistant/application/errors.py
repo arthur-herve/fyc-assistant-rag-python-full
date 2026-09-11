@@ -43,7 +43,15 @@ class InconsistentEmbeddingsError(ApplicationError):
 
 
 class AIServiceError(ApplicationError):
-    """Le service IA est injoignable ou a renvoyé une erreur."""
+    """Le service IA est injoignable ou a renvoyé une erreur.
+
+    `transient` : vrai quand réessayer a un sens (injoignable, délai dépassé,
+    erreur 5xx) ; faux pour une requête refusée (modèle inconnu, 4xx).
+    """
+
+    def __init__(self, message: str, transient: bool = True) -> None:
+        super().__init__(message)
+        self.transient = transient
 
 
 class ModelOutputRejectedError(ApplicationError):

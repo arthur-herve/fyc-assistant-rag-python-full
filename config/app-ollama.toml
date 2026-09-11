@@ -8,7 +8,7 @@
 # embeddings bge-m3 par défaut (hit@1 0,97 contre 0,78 pour nomic sur ce corpus,
 # seuil qui tient en validation), génération llama3.2:3b. Modèles de rupture :
 # nomic (--embedding-model nomic : réindexation obligatoire) et qwen3:4b
-# (--generation-model qwen3-4b : même index, mode réflexion, latence ×10).
+# (--generation-model qwen3-4b : même index, mode réflexion, latence ×20 à ×30).
 
 [ai_service]
 base_url = "http://127.0.0.1:8100"
@@ -63,7 +63,7 @@ max_tokens = 400
 max_attempts = 2
 
 # Utilisateurs de démonstration : mêmes groupes que la simulation des droits
-# du corpus (tous / rh / direction), voir corpus/service-public/README.md.
+# du corpus (tous / rh / direction), voir corpus/README.md.
 [users.alice]
 groups = ["tous"]
 

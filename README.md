@@ -114,7 +114,7 @@ python -m assistant snapshot record bruite --limit 8 --generation-model extracti
 python -m assistant snapshot compare reference bruite       # différences de configuration + taux de dérive
 ```
 
-`status` rend 2 quand il faut réindexer (corpus ou découpage modifiés, autre modèle servi). La comparaison
+`status` rend 2 quand il faut réindexer (corpus ou découpage modifiés, autre modèle servi), 3 quand le service IA n'a pas pu être interrogé (« non vérifié »). La comparaison
 d'instantanés liste toujours les différences de configuration à côté de la dérive : 60 % de dérive avec un
 changement de générateur est attendu ; 60 % sans aucune différence de configuration est une alerte. Détail
 des artefacts et de ce que le code détecte : `docs/artefacts.md`.
@@ -142,9 +142,9 @@ des artefacts et de ce que le code détecte : `docs/artefacts.md`.
    `--embedding-model` et `--generation-model` surchargent les alias ; `config/app.toml` reste la configuration hors-ligne.
 
    **Modèles retenus pour le cours** (mesurés le 11/09/2026 sur RTX 3070 8 Go, `eval/resultats/`) :
-   `bge-m3` + `llama3.2:3b` — hit@1 0,97 sur le corpus réel, réponse citée en ~1,5 s. Modèles de rupture :
+   `bge-m3` + `llama3.2:3b` — hit@1 0,97 sur le corpus réel, réponse citée en ~1,7 s. Modèles de rupture :
    `nomic-embed-text` (moins bon en français : 0,78 ; en changer force la réindexation) et `qwen3:4b`
-   (même index, mode réflexion, latence ×10).
+   (même index, mode réflexion, latence ×20 à ×30).
 
 ### Quels modèles pour quelle machine ?
 
@@ -177,7 +177,7 @@ Sur le corpus réel : `--config config/app-ollama.toml --questions eval/question
 (42 questions de calibration), puis `--questions eval/questions-service-public-validation.json` (16 questions
 jamais vues) pour vérifier que le seuil tient.
 
-**Durée :** avec un modèle de génération sur CPU à ~10 s par réponse, 24 questions × 3 passages × 2 modèles ≈ 25 minutes. Commencer par `--runs 1 --limit 8` pour vérifier que tout tourne.
+**Durée :** ordre de grandeur, non mesuré — avec un modèle de génération sur CPU à ~10 s par réponse, 24 questions × 3 passages × 2 modèles ≈ 25 minutes ; mesuré sur GPU : 4 min pour `llama3.2:3b`, 1 h pour `qwen3:4b` sur le corpus réel. Commencer par `--runs 1 --limit 8` pour vérifier que tout tourne.
 
 Options utiles :
 
@@ -256,13 +256,13 @@ python -m unittest discover -s tests -t .
 | 3.3 — le prompt : configuration ou métier ? | `prompts/answer.toml` et `answer-v2.toml` : construits par l'application, versionnés, tracés dans chaque réponse · `tools/experiences/prompt_v2.py` et `changement_generateur.py` · ADR 0005 |
 | 4.1 — isoler l'incertitude | les droits d'accès filtrent **avant** le modèle ; les préfixes propres aux modèles sont gérés dans `ai_service/registry.py` ; les balises `<think>` et le budget de réflexion dans `backends/ollama.py` ; **décorateurs** empilés par `composition.decorate()` : `infrastructure/decorators.py` (cache, journal, tentatives) et `application/guards.py` (validation de la forme : `domain/output_rules.py`) ; exercice `exercices/s4.1-decorateur-de-validation/` (branche `s4.1-depart`) ; ADR 0008 |
 | 4.2 — versionner ensemble | `IndexManifest` (empreinte du corpus, découpage, modèle concret) · `AnswerTrace` (index, modèles, version du prompt, passages et scores) · `status` (`application/status.py`) · instantanés et dérive (`application/snapshots.py`) · port `Clock` · `docs/artefacts.md` |
-| 4.3 — les limites | index JSON à recherche exhaustive : 0,3 s pour 3 505 morceaux, inutile de sortir une base vectorielle ; ADR 0007 |
+| 4.3 — les limites | index JSON à recherche exhaustive : ≈ 0,1 s pour 3 505 morceaux (93 ms mesurés sans modèle), inutile de sortir une base vectorielle ; ADR 0007 |
 | 5.1 / 5.2 — le cas pratique | `cas-pratique/depart/assistant_rag.py` (version mal structurée, fonctionnelle), énoncé, grille sur 20, tableau défaut → correction |
 
 ## Limites connues
 
-- **Aucun vrai modèle n'a été exécuté pendant l'écriture de ce code** : les backends Ollama et compatible OpenAI sont testés contre des serveurs simulés reproduisant leur API. À valider sur vos machines avec le banc d'essai.
-- Les seuils de `app.toml` pour les vrais modèles sont des valeurs de départ, à recalibrer.
+- Les mesures (`eval/resultats/`) viennent d'une seule machine, avec carte graphique ; les temps sur processeur seul ne sont pas mesurés. Le backend compatible OpenAI n'a été testé que contre un serveur simulé.
+- Seuls `nomic` et `bge-m3` ont des seuils calibrés (Solvéo et Service-Public) ; `all-minilm`, `mxbai`, `st-*` gardent des valeurs de départ.
 - Le générateur hors-ligne `extractive` connaît le format des passages du prompt : couplage volontaire d'un double de test.
 - La validation de la forme des réponses (`domain/output_rules.py`) est une heuristique : marqueurs de raisonnement, ratio de mots anglais. Elle attrape les cas rencontrés le 11/09 (qwen3), pas tous les cas possibles.
 - Utilisateurs déclarés dans la configuration ; pas d'authentification.

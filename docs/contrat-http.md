@@ -73,6 +73,8 @@ Réponse :
 
 Le prompt est construit **côté application** : il dépend du métier (numérotation des passages, obligation de citer). Le service ne fait que le transmettre.
 
+`max_tokens` est le budget de la **réponse**. Pour un modèle à réflexion (`think = true` dans `config/ai_service.toml`), le service ajoute un budget de réflexion (`thinking_tokens`) que l'application ne voit pas : la réponse peut donc dépasser `max_tokens` si le modèle réfléchit peu. C'est la validation de forme côté application (`max_output_chars`) qui borne la longueur montrée à l'utilisateur.
+
 ## Erreurs
 
 Toujours au format :

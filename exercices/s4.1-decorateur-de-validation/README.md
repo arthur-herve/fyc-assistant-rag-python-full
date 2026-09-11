@@ -35,8 +35,8 @@ Ajouter une vérification **déterministe** de la forme de la sortie, **sans mod
    n'importent `infrastructure/`.
 
 Les tests fournis (`tests/unit/test_output_rules.py`, `tests/unit/test_decorators.py`) doivent
-passer. Point de départ : l'étiquette Git `s4.1-depart` (ces fichiers de test sont présents, le
-code manque).
+passer. Point de départ : la branche Git `s4.1-depart` (`git switch s4.1-depart` : ces fichiers de
+test sont présents, le code manque).
 
 ## Questions à se poser en chemin (elles seront reprises en correction)
 
@@ -51,7 +51,7 @@ code manque).
 
 ## Corrigé
 
-Le corrigé est le code du dépôt à l'étiquette `s4.1-solution` :
+Le corrigé est le code de la branche `main` (étiquette `fil-rouge-2026-09-11`) :
 
 | Étape | Fichier | Ce qu'il fait |
 |---|---|---|
