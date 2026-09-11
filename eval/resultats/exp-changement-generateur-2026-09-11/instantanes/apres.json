@@ -1,0 +1,167 @@
+{
+  "name": "apres",
+  "created_at": "2026-09-11T17:41:40+00:00",
+  "configuration": {
+    "corpus": "service-public",
+    "embedding_model": "bge-m3",
+    "generation_model": "qwen3-4b",
+    "splitter": {
+      "type": "paragraph",
+      "max_chars": 800,
+      "overlap_chars": 120,
+      "include_title": true
+    },
+    "top_k": 4,
+    "min_score": 0.65,
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "seed": null,
+    "prompt": "answer",
+    "index_id": "ce6ac963f0e1",
+    "embedding_model_id": "ollama:bge-m3@790764642607",
+    "generation_model_id": "ollama:qwen3:4b@359d7dd4bcda",
+    "prompt_version": "v1+9cf8bd83"
+  },
+  "entries": [
+    {
+      "question_id": "sp-conges-acquis",
+      "user_id": "alice",
+      "question": "Combien de jours de congés payés acquiert-on par mois de travail ?",
+      "status": "unsourced",
+      "cited_documents": [
+        "F18260",
+        "F2931",
+        "F37482"
+      ],
+      "text": "Je n'ai pas pu produire de réponse correctement sourcée. Consultez directement les passages ci-dessous.",
+      "attempts": 2
+    },
+    {
+      "question_id": "sp-conges-report",
+      "user_id": "alice",
+      "question": "Mes congés payés non pris à la fin de la période sont-ils perdus ?",
+      "status": "unsourced",
+      "cited_documents": [
+        "F12410",
+        "F2262",
+        "F37482"
+      ],
+      "text": "Je n'ai pas pu produire de réponse correctement sourcée. Consultez directement les passages ci-dessous.",
+      "attempts": 2
+    },
+    {
+      "question_id": "sp-conges-fermeture",
+      "user_id": "alice",
+      "question": "Combien de jours au maximum peut durer la fermeture annuelle de l'entreprise pour congés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1016"
+      ],
+      "text": "La durée de la fermeture annuelle de l'entreprise pour congés ne peut pas être supérieure à 24 jours ouvrables [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-cdd",
+      "user_id": "alice",
+      "question": "Un salarié en CDD a-t-il droit aux congés payés ?",
+      "status": "unsourced",
+      "cited_documents": [
+        "F2931",
+        "F41"
+      ],
+      "text": "Je n'ai pas pu produire de réponse correctement sourcée. Consultez directement les passages ci-dessous.",
+      "attempts": 2
+    },
+    {
+      "question_id": "sp-conges-demission",
+      "user_id": "alice",
+      "question": "Puis-je démissionner pendant mes congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F21050"
+      ],
+      "text": "Les passages fournis ne traitent pas explicitement de la possibilité de démissionner pendant les congés payés. Le passage [4] aborde les droits des salariés dont le contrat est suspendu, mais ce contexte est lié au congé de maternité et non aux congés payés. Ainsi, il n'est pas possible de répondre à la question avec les informations fournies.",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-sans-solde",
+      "user_id": "alice",
+      "question": "Le congé sans solde est-il prévu par la loi ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10431"
+      ],
+      "text": "Non, le congé sans solde n'est pas prévu par la loi [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-proche-aidant",
+      "user_id": "alice",
+      "question": "Combien de temps au maximum dure le congé de proche aidant sur l'ensemble d'une carrière ?",
+      "status": "answered",
+      "cited_documents": [
+        "F16920"
+      ],
+      "text": "Le congé de proche aidant ne peut pas dépasser 1 an sur l'ensemble de la carrière du salarié [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-temps-partiel-min",
+      "user_id": "alice",
+      "question": "Quelle est la durée minimale hebdomadaire de travail d'un salarié à temps partiel ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1915",
+        "F32428"
+      ],
+      "text": "La durée minimale hebdomadaire de travail d'un salarié à temps partiel est de 24 heures par semaine [1, 2, 3, 4]. Cependant, cette durée peut être",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-legale",
+      "user_id": "alice",
+      "question": "Quelle est la durée légale du travail par semaine pour un temps plein ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911"
+      ],
+      "text": "La durée légale du travail par semaine pour un temps plein est de 35 heures [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-max-jour",
+      "user_id": "alice",
+      "question": "Combien d'heures de travail effectif au maximum par jour ?",
+      "status": "unsourced",
+      "cited_documents": [
+        "F1911",
+        "F2216",
+        "F316"
+      ],
+      "text": "Je n'ai pas pu produire de réponse correctement sourcée. Consultez directement les passages ci-dessous.",
+      "attempts": 2
+    },
+    {
+      "question_id": "sp-heures-sup",
+      "user_id": "alice",
+      "question": "Quelle majoration s'applique aux huit premières heures supplémentaires de la semaine ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2391"
+      ],
+      "text": "La majoration applicable aux huit premières heures supplémentaires de la semaine est de 25 % [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dimanche",
+      "user_id": "alice",
+      "question": "Est-on payé double quand on travaille le dimanche ?",
+      "status": "unsourced",
+      "cited_documents": [
+        "F13887"
+      ],
+      "text": "Je n'ai pas pu produire de réponse correctement sourcée. Consultez directement les passages ci-dessous.",
+      "attempts": 2
+    }
+  ]
+}

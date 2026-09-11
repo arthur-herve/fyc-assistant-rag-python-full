@@ -1,0 +1,163 @@
+{
+  "name": "avant",
+  "created_at": "2026-09-11T17:34:59+00:00",
+  "configuration": {
+    "corpus": "service-public",
+    "embedding_model": "bge-m3",
+    "generation_model": "llama3-2-3b",
+    "splitter": {
+      "type": "paragraph",
+      "max_chars": 800,
+      "overlap_chars": 120,
+      "include_title": true
+    },
+    "top_k": 4,
+    "min_score": 0.65,
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "seed": null,
+    "prompt": "answer",
+    "index_id": "ce6ac963f0e1",
+    "embedding_model_id": "ollama:bge-m3@790764642607",
+    "generation_model_id": "ollama:llama3.2:3b@a80c4f17acd5",
+    "prompt_version": "v1+9cf8bd83"
+  },
+  "entries": [
+    {
+      "question_id": "sp-conges-acquis",
+      "user_id": "alice",
+      "question": "Combien de jours de congés payés acquiert-on par mois de travail ?",
+      "status": "answered",
+      "cited_documents": [
+        "F18260",
+        "F2931",
+        "F37482"
+      ],
+      "text": "Le salarié a droit à 2,5 jours ouvrables par mois de travail effectif, soit 30 jours ouvrables de congés annuels. [1]\n\nCependant, il est précisé que si le salarié n'a pas pris tous ses congés payés acquis avant la fin de son CDD, il bénéficie alors d'une indemnité compensatrice de congés payés. [2]\n\nEnfin, il est important de noter que la période de référence pour l'acquisition des congés payés est fixée du 1er juin de l'année N-1 au 31 mai de l'année N, sauf si une convention collective ou un accord collectif d'entreprise prévoit une autre période. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-report",
+      "user_id": "alice",
+      "question": "Mes congés payés non pris à la fin de la période sont-ils perdus ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12410"
+      ],
+      "text": "Non, les congés payés non pris à la fin de la période de prise ne sont pas automatiquement perdus, mais il faut vérifier si l'accord entre l'employeur et le salarié est en place. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-fermeture",
+      "user_id": "alice",
+      "question": "Combien de jours au maximum peut durer la fermeture annuelle de l'entreprise pour congés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1016"
+      ],
+      "text": "La durée de la fermeture annuelle de l'entreprise pour congés ne peut pas dépasser 24 jours ouvrables [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-cdd",
+      "user_id": "alice",
+      "question": "Un salarié en CDD a-t-il droit aux congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2931"
+      ],
+      "text": "Oui, le salarié en CDD a droit aux congés payés. Le salarié en CDD bénéficie des mêmes droits à congés payés qu'un salarié en CDI [1]. Le salarié en CDD a droit à 2,5 jours ouvrables par mois de travail effectif chez le même employeur [1]. Le salarié en CDD peut donc bénéficier de congés payés, même si la durée du CDD est inférieure à celle d'un CDI [2].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-demission",
+      "user_id": "alice",
+      "question": "Puis-je démissionner pendant mes congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2265"
+      ],
+      "text": "Oui, vous pouvez démissionner pendant vos congés payés. Vous devez avertir votre employeur par tout moyen, par oral ou par écrit, de votre volonté de démissionner. La rupture du contrat de travail s'effectue alors immédiatement [1].\n\nEn outre, il est préférable d'informer votre employeur par lettre avec RAR de votre volonté de démissionner pour prévenir tout litige [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-sans-solde",
+      "user_id": "alice",
+      "question": "Le congé sans solde est-il prévu par la loi ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10431"
+      ],
+      "text": "Non, le congé sans solde n'est pas prévu par la législation. [4] \n\nL'employeur n'est pas obligé d'accorder un congé sans solde, et le salarié doit demander à son employeur de pouvoir bénéficier de ce congé. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-proche-aidant",
+      "user_id": "alice",
+      "question": "Combien de temps au maximum dure le congé de proche aidant sur l'ensemble d'une carrière ?",
+      "status": "answered",
+      "cited_documents": [
+        "F16920"
+      ],
+      "text": "Le congé de proche aidant ne peut pas dépasser 1 an sur l'ensemble de la carrière du salarié. [2, 3]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-temps-partiel-min",
+      "user_id": "alice",
+      "question": "Quelle est la durée minimale hebdomadaire de travail d'un salarié à temps partiel ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1915",
+        "F32428"
+      ],
+      "text": "La durée minimale hebdomadaire de travail d'un salarié à temps partiel est de 24 heures, en l'absence de précision dans la convention ou l'accord. [1, 4] \n\nCependant, si le CDD de dépasse pas 7 jours, la durée minimale hebdomadaire de travail peut être inférieure à 24 heures. [4]\n\nEn cas de répartition de la durée du travail sur une période supérieure à la semaine, la durée minimale hebdomadaire de travail est de 104 heures par mois. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-legale",
+      "user_id": "alice",
+      "question": "Quelle est la durée légale du travail par semaine pour un temps plein ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911"
+      ],
+      "text": "La durée légale du travail pour un temps complet du salarié du secteur privé est fixée à 35 heures par semaine. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-max-jour",
+      "user_id": "alice",
+      "question": "Combien d'heures de travail effectif au maximum par jour ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911",
+        "F316"
+      ],
+      "text": "La durée maximale quotidienne de travail est de 10 heures pour les salariés âgés d'au moins 18 ans, sauf dérogations. \n\n[1]\n\nIl est possible de travailler 12 heures par jour en cas d'urgence ou si une convention collective le prévoit. \n\n[3]\n\nIl est possible de travailler 10 heures de suite avant une pause d'au moins 20 minutes, mais il n'y a pas d'indication sur le nombre d'heures de travail effectif maximum par jour. \n\n[4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-heures-sup",
+      "user_id": "alice",
+      "question": "Quelle majoration s'applique aux huit premières heures supplémentaires de la semaine ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2391"
+      ],
+      "text": "Les huit premières heures supplémentaires de la semaine sont majorées de 25 % [1]. \n\nCes heures supplémentaires sont comptées séparément de la durée légale hebdomadaire. \n\nIl est à noter que ces 25 % sont au minimum fixés à 10 % [2].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dimanche",
+      "user_id": "alice",
+      "question": "Est-on payé double quand on travaille le dimanche ?",
+      "status": "answered",
+      "cited_documents": [
+        "F13887"
+      ],
+      "text": "Non, on n'est pas payé double quand on travaille le dimanche. La loi n'impose pas le paiement obligatoire d'une majoration de salaire lorsqu'il travaille un dimanche, que ce soit occasionnellement ou chaque semaine [1, 2].\n\nEn outre, dans certains secteurs, comme les commerces de détail alimentaire, le repos hebdomadaire peut être donné le dimanche à partir de 13 heures, ce qui signifie que le salarié ne travaille pas le dimanche [4].\n\nCependant, l'employeur peut décider de verser au salarié une majoration de salaire s'il le souhaite, et des dispositions conventionnelles ou collectives ou un accord de l'employeur peuvent prévoir une majoration de salaire et/ou des mesures de compensation [2, 3].",
+      "attempts": 1
+    }
+  ]
+}

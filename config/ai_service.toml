@@ -89,14 +89,16 @@ model = "gemma3:1b"
 # Modèles qwen3 : le mode réflexion reste ACTIVÉ (think = true) et reçoit son
 # propre budget de jetons. Mesuré le 11/09/2026 (Ollama 0.34, qwen3:4b) :
 # think = false déverse le raisonnement dans la réponse, sans balise ;
-# think = true le renvoie à part, et la réponse est propre. C'est une
-# particularité du modèle : elle se règle ici, jamais dans l'application.
+# think = true le renvoie à part, et la réponse est propre. Le budget doit
+# suivre la longueur du prompt : avec 4 passages de 800 caractères, qwen3:4b
+# réfléchit sur ~2 300 jetons ; à 1 200, la réponse revient vide 4 fois sur 10.
+# C'est une particularité du modèle : elle se règle ici, jamais dans l'application.
 [generation.qwen3-1b7]
 backend = "ollama"
 description = "~1,4 Go. Réflexion activée et écartée, budget séparé."
 model = "qwen3:1.7b"
 think = true
-thinking_tokens = 1200
+thinking_tokens = 2500
 
 [generation.llama3-2-3b]
 backend = "ollama"
@@ -105,10 +107,10 @@ model = "llama3.2:3b"
 
 [generation.qwen3-4b]
 backend = "ollama"
-description = "~2,5 Go. Réflexion activée et écartée, budget séparé : ~10 s par réponse sur GPU."
+description = "~2,5 Go. Réflexion activée et écartée, budget séparé : 30 à 50 s par réponse sur GPU."
 model = "qwen3:4b"
 think = true
-thinking_tokens = 1200
+thinking_tokens = 3000
 
 [generation.gemma3-4b]
 backend = "ollama"

@@ -10,5 +10,7 @@ eval/resultats/*
 !eval/resultats/2026-09-11-service-public-qwen/
 !eval/resultats/2026-09-11-service-public-validation/
 !eval/resultats/exp-*/
+!eval/resultats/README.md
+!eval/resultats/LECTURE-experiences.md
 eval/resultats/*/index-*.json
 *.tmp

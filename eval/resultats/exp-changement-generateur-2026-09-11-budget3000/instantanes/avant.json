@@ -1,0 +1,165 @@
+{
+  "name": "avant",
+  "created_at": "2026-09-11T17:54:59+00:00",
+  "configuration": {
+    "corpus": "service-public",
+    "embedding_model": "bge-m3",
+    "generation_model": "llama3-2-3b",
+    "splitter": {
+      "type": "paragraph",
+      "max_chars": 800,
+      "overlap_chars": 120,
+      "include_title": true
+    },
+    "top_k": 4,
+    "min_score": 0.65,
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "seed": null,
+    "prompt": "answer",
+    "index_id": "ce6ac963f0e1",
+    "embedding_model_id": "ollama:bge-m3@790764642607",
+    "generation_model_id": "ollama:llama3.2:3b@a80c4f17acd5",
+    "prompt_version": "v1+9cf8bd83"
+  },
+  "entries": [
+    {
+      "question_id": "sp-conges-acquis",
+      "user_id": "alice",
+      "question": "Combien de jours de congés payés acquiert-on par mois de travail ?",
+      "status": "answered",
+      "cited_documents": [
+        "F18260"
+      ],
+      "text": "Selon l'article [1], un salarié a droit à 2,5 jours ouvrables par mois de travail effectif, soit 30 jours ouvrables de congés annuels. \n\nCependant, si le salarié est en arrêt maladie, il a droit à 2 jours ouvrables par mois, soit 24 jours ouvrables par an. \n\nIl est important de noter que le décompte du nombre de jours de congé peut également être effectué par période de 4 semaines ou par période de 24 jours ouvrables de travail effectif.",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-report",
+      "user_id": "alice",
+      "question": "Mes congés payés non pris à la fin de la période sont-ils perdus ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12410"
+      ],
+      "text": "Non, les congés payés non pris à la fin de la période de prise ne sont pas nécessairement perdus. En effet, le salarié peut reporter ces jours de congés payés non pris sur l'année suivante, sous condition de avoir effectué un temps de travail annualisé. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-fermeture",
+      "user_id": "alice",
+      "question": "Combien de jours au maximum peut durer la fermeture annuelle de l'entreprise pour congés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1016"
+      ],
+      "text": "La durée de la fermeture annuelle de l'entreprise pour congés ne peut pas dépasser 24 jours ouvrables [1].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-cdd",
+      "user_id": "alice",
+      "question": "Un salarié en CDD a-t-il droit aux congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2931",
+        "F41"
+      ],
+      "text": "Oui, le salarié en CDD a droit aux congés payés, mais le nombre de jours de congés payés est calculé en fonction du nombre de jours travaillés dans le mois et est arrondi au nombre immédiatement supérieur [2]. Le salarié en CDD bénéficie des mêmes avantages salariaux de l'entreprise que le salarié en CDI, notamment les congés payés [4]. Le montant de l'indemnité compensatrice de congés payés est calculé en fonction de la durée effective de son CDD et est au moins égal à 10 % de sa rémunération totale brute perçue [3].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-demission",
+      "user_id": "alice",
+      "question": "Puis-je démissionner pendant mes congés payés ?",
+      "status": "answered",
+      "cited_documents": [
+        "F12803",
+        "F21050",
+        "F2265"
+      ],
+      "text": "Oui, vous pouvez démissionner pendant votre congé de maternité. Vous devez avertir votre employeur par tout moyen, par oral ou par écrit, de votre volonté de démissionner. La rupture du contrat de travail s'effectue alors immédiatement [1].\n\nEt, selon les dispositions conventionnelles, vous devez informer votre employeur au moins 15 jours avant la date envisagée de rupture du contrat de travail [4].\n\nIl est important de noter que l'employeur ne peut pas modifier l'ordre et les dates de départ moins d'un mois avant la date de départ prévue [2].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-sans-solde",
+      "user_id": "alice",
+      "question": "Le congé sans solde est-il prévu par la loi ?",
+      "status": "answered",
+      "cited_documents": [
+        "F10431"
+      ],
+      "text": "Non, le congé sans solde n'est pas prévu par la législation [4]. L'employeur n'est pas obligé d'accorder un congé sans solde et n'a pas à justifier la raison de son refus [2]. Le salarié doit demander à son employeur de pouvoir bénéficier de ce congé, mais il n'existe pas de formalisme pour demander un congé sans solde [4].",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-conges-proche-aidant",
+      "user_id": "alice",
+      "question": "Combien de temps au maximum dure le congé de proche aidant sur l'ensemble d'une carrière ?",
+      "status": "answered",
+      "cited_documents": [
+        "F16920"
+      ],
+      "text": "Le congé de proche aidant ne peut pas dépasser 1 an sur l'ensemble de la carrière du salarié. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-temps-partiel-min",
+      "user_id": "alice",
+      "question": "Quelle est la durée minimale hebdomadaire de travail d'un salarié à temps partiel ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1915",
+        "F32428"
+      ],
+      "text": "La durée minimale hebdomadaire de travail d'un salarié à temps partiel est de 24 heures. C'est la durée minimale légale fixée par la convention collective (ou l'accord de branche étendu) en l'absence de précision dans la convention ou l'accord. [1, 4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-legale",
+      "user_id": "alice",
+      "question": "Quelle est la durée légale du travail par semaine pour un temps plein ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911"
+      ],
+      "text": "La durée légale de temps de travail pour un temps complet du salarié du secteur privé est fixée à 35 heures par semaine. [2]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-duree-max-jour",
+      "user_id": "alice",
+      "question": "Combien d'heures de travail effectif au maximum par jour ?",
+      "status": "answered",
+      "cited_documents": [
+        "F1911",
+        "F2216",
+        "F316"
+      ],
+      "text": "La durée maximale de travail effectif par jour est de 10 heures pour les salariés âgés d'au moins 18 ans, sauf dérogations. [1]\n\nLa durée maximale de travail effectif par jour est de 8 heures pour les jeunes de moins de 18 ans. [2]\n\nIl n'y a pas de durée maximale de travail effectif par jour spécifiée pour les salariés d'au moins 16 ans, mais il y a des dérogations pour des activités spécifiques, telles que les chantiers de bâtiment ou les chantiers de travaux publics. [2]\n\nEn général, un salarié ne doit pas travailler plus de 6 heures de suite dans une journée, avec une pause d'au moins 20 minutes consécutives. [4]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-heures-sup",
+      "user_id": "alice",
+      "question": "Quelle majoration s'applique aux huit premières heures supplémentaires de la semaine ?",
+      "status": "answered",
+      "cited_documents": [
+        "F2391"
+      ],
+      "text": "Pour les huit premières heures supplémentaires de la semaine, la majoration est de 25 %. [1]",
+      "attempts": 1
+    },
+    {
+      "question_id": "sp-dimanche",
+      "user_id": "alice",
+      "question": "Est-on payé double quand on travaille le dimanche ?",
+      "status": "answered",
+      "cited_documents": [
+        "F13887"
+      ],
+      "text": "Non, on n'est pas payé double quand on travaille le dimanche. La loi n'impose pas le paiement obligatoire d'une majoration de salaire lorsqu'il travaille un dimanche, que ce soit occasionnellement ou chaque semaine [1, 2].\n\nIl est possible que l'employeur décide de verser une majoration de salaire s'il le souhaite, mais ce n'est pas obligatoire [1, 2]. De plus, la convention collective ou le contrat de travail du salarié peuvent prévoir une contrepartie en repos compensateur, par exemple un jour de repos en semaine [1, 2].\n\nIl est également possible que des dispositions conventionnelles ou collectives ou un accord de l'employeur prévoient une majoration de salaire et/ou des mesures de compensation, mais cela n'est pas obligatoire [3].",
+      "attempts": 1
+    }
+  ]
+}
