@@ -62,7 +62,7 @@ docs/artefacts.md           les sept artefacts à versionner ensemble, et ce que
 docs/adr/                   huit décisions d'architecture, avec ce qui a été écarté
 exercices/                  exercices de code : kits de départ, énoncés, corrigés (S2.2, S3.1, S4.1)
 cas-pratique/               S5.1 : une version mal structurée du fil rouge à rendre maintenable, énoncé, grille, corrigé
-tests/                      125 tests, bibliothèque standard uniquement
+tests/                      133 tests, bibliothèque standard uniquement
 ```
 
 ## Démarrage rapide (hors-ligne, sans modèle)

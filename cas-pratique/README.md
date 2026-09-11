@@ -82,7 +82,7 @@ correction commentée (vidéo S5.2) parcourt le tableau suivant, défaut par dé
 | `PROMPT` constante, ni versionnée ni tracée | absence de traçabilité | `prompts/answer.toml`, version + empreinte dans `AnswerTrace` ; ADR 0005 |
 | `EMBED_MODEL`, `GEN_MODEL`, `USERS`, `AI_URL` en globales modifiées par `main` ; `INDEX` global ; `sys.exit` dans la logique | absence de frontière | `composition.py` (seul endroit qui connaît tout), `AppConfig`, erreurs typées attrapées dans `interface/` |
 | `pickle` sans manifeste : l'index ne sait pas de quoi il est dérivé | absence de traçabilité | `infrastructure/vector_index.py` (JSON lisible + manifeste) ; `docs/artefacts.md` |
-| Corpus parsé, découpé, vectorisé, recherché et généré dans le même module ; aucun test possible sans service IA | absence de frontière | ports `DocumentSource`, `TextSplitter`, `Embedder`, `VectorIndex`, `Generator` ; doubles dans `tests/fakes.py` ; 125 tests sans réseau |
+| Corpus parsé, découpé, vectorisé, recherché et généré dans le même module ; aucun test possible sans service IA | absence de frontière | ports `DocumentSource`, `TextSplitter`, `Embedder`, `VectorIndex`, `Generator` ; doubles dans `tests/fakes.py` ; 133 tests sans réseau |
 
 Les trois demandes, après refonte : (1) changer d'embeddings = changer un alias dans la
 configuration, réindexer, et l'application refuse tant que ce n'est pas fait ; (2) la

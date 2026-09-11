@@ -33,7 +33,7 @@ cd fyc-assistant-rag
 python -m unittest discover -s tests -t .
 ```
 
-Attendu : `Ran 125 tests … OK` en moins de 15 secondes. Si c'est vert, votre poste est prêt
+Attendu : `Ran 133 tests … OK` en moins de 15 secondes. Si c'est vert, votre poste est prêt
 pour les séquences 1 à 2.2.
 
 ## 3. Le mode hors-ligne (2 min)
