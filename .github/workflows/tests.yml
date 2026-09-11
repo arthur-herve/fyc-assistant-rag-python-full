@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # Bibliothèque standard uniquement : rien à installer.
+      - name: Tests (sans IA, sans réseau)
+        run: python -m unittest discover -s tests -t . -v
+      - name: Kit de l'exercice S2.2 avec sa solution
+        shell: bash
+        run: |
+          cd exercices/s2.2-coeur-metier/depart
+          cp ../solution/*.py coeur/
+          python -m unittest discover -s tests -t .
