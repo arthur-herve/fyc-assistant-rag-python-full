@@ -2,7 +2,12 @@
 
 Le service IA ne connaît rien au métier. Il reçoit des textes, renvoie des vecteurs ou du texte, et **dit toujours quel modèle a réellement servi**. C'est ce champ qui permet à l'application de détecter qu'un index n'est plus compatible.
 
-> ⚠️ À aligner avec le code déjà écrit par l'équipe avant de figer ce contrat.
+Version 1, figée le 11/09/2026. Deux routes seulement : le service produit des vecteurs et du texte,
+l'index reste côté application (ADR 0002). L'exploration antérieure de l'équipe (`AssistantQR`)
+hébergeait l'index dans le service (`/index/reset`, `/index/upsert`, `/index/search` avec filtre
+d'accès) ; ce contrat-ci ne reprend pas ces routes, volontairement : la règle d'accès reste dans le
+domaine et l'index reste une donnée que l'application sait décrire (`status`). Tout ajout de route
+passe par une nouvelle version (`/v2/`).
 
 ## `GET /health`
 

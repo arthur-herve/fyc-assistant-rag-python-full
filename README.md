@@ -8,6 +8,15 @@ Un assistant qui répond aux questions des salariés à partir de documents inte
 - Mode hors-ligne intégré : tout fonctionne sans modèle ni GPU, pour les tests et le développement.
 - Vrais modèles via [Ollama](https://ollama.com) (ou tout serveur compatible OpenAI : LM Studio, llama.cpp, vLLM).
 
+**Vous suivez le cours ? Par où commencer :**
+
+1. `docs/installation.md` — Python, Git, puis Ollama quand vous en aurez besoin (15 min hors-ligne).
+2. Le démarrage rapide ci-dessous : deux terminaux, une question, une réponse citée.
+3. La carte « Où la problématique apparaît dans le code », en bas de cette page : chaque séquence
+   du cours pointe vers les fichiers qui la portent.
+4. `exercices/` et `cas-pratique/` : les points de départ, les énoncés, les corrigés.
+5. `docs/adr/` : pourquoi chaque frontière est là — et ce qu'on a écarté.
+
 ## Architecture
 
 ```mermaid
