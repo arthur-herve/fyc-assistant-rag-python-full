@@ -1,0 +1,4 @@
+# Optionnel, uniquement sur la machine du service IA, pour les modèles
+# d'embeddings « st-* » de config/ai_service.toml. Installe PyTorch (~1 à 2 Go).
+# Le reste du projet n'a besoin d'aucune dépendance : Python 3.11+ suffit.
+sentence-transformers>=3.0

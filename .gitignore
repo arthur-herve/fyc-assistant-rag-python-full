@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+data/
+eval/instantanes/
+eval/resultats/*
+# Rapports de référence conservés (sans les index reconstruits)
+!eval/resultats/2026-09-11-complet/
+!eval/resultats/2026-09-11-service-public/
+!eval/resultats/2026-09-11-service-public-qwen/
+!eval/resultats/2026-09-11-service-public-validation/
+!eval/resultats/exp-*/
+eval/resultats/*/index-*.json
+*.tmp

@@ -1,0 +1,22 @@
+{
+  "description": "Jeu de VALIDATION sur le corpus corpus/service-public : questions distinctes de celles du jeu de calibration (questions-service-public.json), pour vérifier qu'un seuil de pertinence calibré tient sur des questions qu'il n'a pas vues (séquence 3.1). Mêmes conventions que le jeu de calibration. Réponses vérifiées dans les fiches le 11/09/2026.",
+  "users": {"alice": ["tous"], "bruno": ["tous", "rh"], "claire": ["tous", "direction"]},
+  "questions": [
+    {"id": "spv-conges-semaines", "user": "alice", "question": "À combien de semaines de congés payés correspond une année complète de travail ?", "expected_documents": ["F2931", "F18260"], "expected_keywords": ["5 semaines"]},
+    {"id": "spv-duree-annuelle", "user": "alice", "question": "À combien d'heures par an correspond la durée légale du travail ?", "expected_documents": ["F1911", "F2391", "F32428", "F75"], "expected_keywords": ["1 607"]},
+    {"id": "spv-duree-max-semaine", "user": "alice", "question": "Combien d'heures au maximum peut-on travailler sur une même semaine ?", "expected_documents": ["F1911"], "expected_keywords": ["48 heures"]},
+    {"id": "spv-heures-sup-repos", "user": "alice", "question": "De combien de temps l'employeur peut-il différer la prise du repos compensateur des heures supplémentaires ?", "expected_documents": ["F2391"], "expected_keywords": ["2 mois"]},
+    {"id": "spv-cpf-plafond", "user": "alice", "question": "Quel est le plafond du compte personnel de formation ?", "expected_documents": ["F10705"], "expected_keywords": ["5 000 €"]},
+    {"id": "spv-maternite-obligatoire", "user": "alice", "question": "Une salariée peut-elle renoncer à son congé de maternité ?", "expected_documents": ["F2265"], "expected_keywords": ["obligatoire"]},
+    {"id": "spv-stage-cotisations", "user": "alice", "question": "En dessous de quel montant horaire la gratification de stage est-elle exonérée de cotisations sociales ?", "expected_documents": ["F16734"], "expected_keywords": ["4,50 €"]},
+    {"id": "spv-teletravail-cadre", "user": "alice", "question": "Par quel document le télétravail est-il mis en place dans l'entreprise ?", "expected_documents": ["F13851"], "expected_keywords": ["charte"]},
+    {"id": "spv-proche-aidant-renouvellement", "user": "alice", "question": "Le congé de proche aidant peut-il être renouvelé ?", "expected_documents": ["F16920"], "expected_keywords": ["renouvel"]},
+    {"id": "spv-arret-travail-teletravail", "user": "alice", "question": "Puis-je continuer à travailler en télétravail pendant un arrêt de travail ?", "expected_documents": ["F18724"], "expected_keywords": ["ne peut pas"]},
+    {"id": "spv-rh-faute-lourde", "user": "bruno", "question": "Quelles sont les conséquences d'un licenciement pour faute lourde sur les indemnités du salarié ?", "expected_documents": ["F1137"], "expected_keywords": ["faute lourde"]},
+    {"id": "spv-rh-abandon-lettre", "user": "bruno", "question": "Par quel moyen l'employeur demande-t-il à un salarié de justifier un abandon de poste ?", "expected_documents": ["F31209"], "expected_keywords": ["recommandée"]},
+    {"id": "spv-dir-litiges", "user": "claire", "question": "Quelle juridiction règle les litiges individuels entre un employeur et un salarié ?", "expected_documents": ["F1052"], "expected_keywords": ["prud'hommes"]},
+    {"id": "spv-acces-abandon-refuse", "user": "alice", "question": "Par quel moyen l'employeur demande-t-il à un salarié de justifier un abandon de poste ?", "answerable": false, "forbidden_documents": ["F31209"]},
+    {"id": "spv-hors-carte-grise", "user": "alice", "question": "Quel est le tarif d'une carte grise ?", "answerable": false},
+    {"id": "spv-hors-difficile-hospitaliere", "user": "alice", "question": "Combien de jours de RTT a un agent de la fonction publique hospitalière ?", "answerable": false}
+  ]
+}

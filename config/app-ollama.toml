@@ -1,0 +1,74 @@
+# Configuration « cours » : vrais modèles via Ollama et corpus réel.
+#   python -m assistant index --config config/app-ollama.toml
+#   python -m assistant ask "..." --user alice --config config/app-ollama.toml
+# (ou ASSISTANT_CONFIG=config/app-ollama.toml). Le service IA doit tourner
+# (python -m ai_service) et Ollama doit avoir les modèles : voir le README.
+#
+# Décision du 11/09/2026 (après mesure, eval/resultats/2026-09-11-service-public) :
+# embeddings bge-m3 par défaut (hit@1 0,97 contre 0,78 pour nomic sur ce corpus,
+# seuil qui tient en validation), génération llama3.2:3b. Modèles de rupture :
+# nomic (--embedding-model nomic : réindexation obligatoire) et qwen3:4b
+# (--generation-model qwen3-4b : même index, mode réflexion, latence ×10).
+
+[ai_service]
+base_url = "http://127.0.0.1:8100"
+embedding_model = "bge-m3"         # changer ce modèle impose de réindexer
+generation_model = "llama3-2-3b"   # changer ce modèle ne touche pas à l'index
+timeout_seconds = 300
+
+[corpus]
+directory = "corpus/service-public"   # 322 fiches Service-Public.gouv.fr (DILA, Licence Ouverte 2.0)
+
+[index]
+path = "data/index-service-public.json"
+
+[snapshots]
+directory = "eval/instantanes"   # python -m assistant snapshot record <nom> / compare <a> <b>
+
+[splitter]
+max_chars = 800
+overlap_chars = 120
+include_title = true
+
+[retrieval]
+top_k = 4
+
+# Seuils PAR modèle d'embeddings ET par corpus : calibrés sur les 42 questions
+# de eval/questions-service-public.json le 11/09/2026
+# (eval/resultats/2026-09-11-service-public) : nomic 0,73 (séparation 0,91),
+# bge-m3 0,65 (séparation 0,98), hashing 0,45. Sur le petit corpus Solvéo les
+# mêmes modèles demandaient 0,59 et 0,46 : avec 3 505 morceaux au lieu de 15,
+# il y a toujours un morceau « assez proche », les scores montent, le seuil aussi.
+[retrieval.min_score]
+default = 0.40
+hashing = 0.45
+nomic = 0.73
+bge-m3 = 0.65
+all-minilm = 0.35
+mxbai = 0.55
+
+# Décorateurs empilés sur les ports par composition.py (séquence 4.1). Aucun
+# n'est connu des cas d'usage. Le journal s'affiche avec -v ou ASSISTANT_LOG=INFO.
+[decorators]
+validate_output = true     # rejette une sortie vide, trop longue, en anglais ou qui raisonne
+max_output_chars = 1500
+cache_embeddings = true    # mémoire du processus ; un cache persistant devrait porter le modèle
+log = true
+retries = 1                # nouvelles tentatives quand le service IA est injoignable
+
+[generation]
+prompt = "answer"          # fichier assistant/prompts/<nom>.toml ; variante : "answer-v2" (séquence 3.3)
+temperature = 0.2
+max_tokens = 400
+max_attempts = 2
+
+# Utilisateurs de démonstration : mêmes groupes que la simulation des droits
+# du corpus (tous / rh / direction), voir corpus/service-public/README.md.
+[users.alice]
+groups = ["tous"]
+
+[users.bruno]
+groups = ["tous", "rh"]
+
+[users.claire]
+groups = ["tous", "direction"]

@@ -1,0 +1,52 @@
+{
+  "description": "Jeu de CALIBRATION sur le corpus corpus/service-public (322 fiches Service-Public.gouv.fr, thème Travail - Formation, secteur privé). Sert à mesurer la recherche et à proposer un seuil par modèle d'embeddings ; le jeu de VALIDATION (questions-service-public-validation.json) sert ensuite à vérifier ce seuil sur des questions qu'il n'a pas vues. Conventions : 'answerable' = la réponse existe dans un document accessible à l'utilisateur ; 'forbidden_documents' = documents que la réponse ne doit jamais citer pour cet utilisateur (les questions d'accès refusé portent sur des sujets aussi traités par des fiches publiques : un refus n'est pas toujours attendu, une fuite ne l'est jamais) ; les questions 'hors corpus' marquées 'difficile' sont lexicalement proches du corpus (fonction publique, impôts) et servent à éprouver le seuil. Réponses vérifiées dans les fiches le 11/09/2026 ; les montants et délais peuvent changer à la prochaine mise à jour du corpus.",
+  "users": {"alice": ["tous"], "bruno": ["tous", "rh"], "claire": ["tous", "direction"]},
+  "questions": [
+    {"id": "sp-conges-acquis", "user": "alice", "question": "Combien de jours de congés payés acquiert-on par mois de travail ?", "expected_documents": ["F2931", "F18260", "F33927", "F37482"], "expected_keywords": ["2,5 jours"]},
+    {"id": "sp-conges-report", "user": "alice", "question": "Mes congés payés non pris à la fin de la période sont-ils perdus ?", "expected_documents": ["F12410", "F2262"], "expected_keywords": ["perdus"]},
+    {"id": "sp-conges-fermeture", "user": "alice", "question": "Combien de jours au maximum peut durer la fermeture annuelle de l'entreprise pour congés ?", "expected_documents": ["F1016"], "expected_keywords": ["24 jours"]},
+    {"id": "sp-conges-cdd", "user": "alice", "question": "Un salarié en CDD a-t-il droit aux congés payés ?", "expected_documents": ["F2931"], "expected_keywords": ["2,5 jours"]},
+    {"id": "sp-conges-demission", "user": "alice", "question": "Puis-je démissionner pendant mes congés payés ?", "expected_documents": ["F12598"], "expected_keywords": ["oui"]},
+    {"id": "sp-conges-sans-solde", "user": "alice", "question": "Le congé sans solde est-il prévu par la loi ?", "expected_documents": ["F10431"], "expected_keywords": ["législation"]},
+    {"id": "sp-conges-proche-aidant", "user": "alice", "question": "Combien de temps au maximum dure le congé de proche aidant sur l'ensemble d'une carrière ?", "expected_documents": ["F16920"], "expected_keywords": ["1 an"]},
+    {"id": "sp-temps-partiel-min", "user": "alice", "question": "Quelle est la durée minimale hebdomadaire de travail d'un salarié à temps partiel ?", "expected_documents": ["F1915", "F32428"], "expected_keywords": ["24 heures"]},
+    {"id": "sp-duree-legale", "user": "alice", "question": "Quelle est la durée légale du travail par semaine pour un temps plein ?", "expected_documents": ["F1911", "F2391"], "expected_keywords": ["35 heures"]},
+    {"id": "sp-duree-max-jour", "user": "alice", "question": "Combien d'heures de travail effectif au maximum par jour ?", "expected_documents": ["F1911"], "expected_keywords": ["10 heures"]},
+    {"id": "sp-heures-sup", "user": "alice", "question": "Quelle majoration s'applique aux huit premières heures supplémentaires de la semaine ?", "expected_documents": ["F2391"], "expected_keywords": ["25 %"]},
+    {"id": "sp-dimanche", "user": "alice", "question": "Est-on payé double quand on travaille le dimanche ?", "expected_documents": ["F13887"], "expected_keywords": ["major"]},
+    {"id": "sp-teletravail-volontaire", "user": "alice", "question": "Mon employeur peut-il m'imposer le télétravail ?", "expected_documents": ["F13851"], "expected_keywords": ["volontaire"]},
+    {"id": "sp-paternite", "user": "alice", "question": "Combien de jours dure le congé de paternité et d'accueil de l'enfant ?", "expected_documents": ["F3156", "F12647", "F35002"], "expected_keywords": ["25 jours"]},
+    {"id": "sp-naissance", "user": "alice", "question": "Combien de jours dure le congé de naissance ?", "expected_documents": ["F12647", "F2266"], "expected_keywords": ["3 jours"]},
+    {"id": "sp-maternite", "user": "alice", "question": "Quelle est la durée du congé de maternité pour un premier enfant ?", "expected_documents": ["F2265"], "expected_keywords": ["16 semaines"]},
+    {"id": "sp-grossesse", "user": "alice", "question": "Suis-je obligée d'annoncer ma grossesse à mon employeur ?", "expected_documents": ["F1144"], "expected_keywords": ["oblig"]},
+    {"id": "sp-cpf-montant", "user": "alice", "question": "De combien mon compte personnel de formation est-il alimenté chaque année ?", "expected_documents": ["F10705"], "expected_keywords": ["500 €"]},
+    {"id": "sp-stage-gratification", "user": "alice", "question": "À partir de quelle durée de stage la gratification est-elle obligatoire ?", "expected_documents": ["F16734"], "expected_keywords": ["2 mois"]},
+    {"id": "sp-pmsmp", "user": "alice", "question": "À quoi sert une période de mise en situation en milieu professionnel ?", "expected_documents": ["F14102"], "expected_keywords": ["orientation"]},
+    {"id": "sp-arret-maladie-sorties", "user": "alice", "question": "Pendant un arrêt maladie, à quelles heures dois-je être présent à mon domicile ?", "expected_documents": ["F12415"], "expected_keywords": ["9 h", "14 h"]},
+    {"id": "sp-droit-retrait", "user": "alice", "question": "Puis-je être sanctionné si j'exerce mon droit de retrait face à un danger ?", "expected_documents": ["F1136"], "expected_keywords": ["sanctionn"]},
+    {"id": "sp-titres-restaurant", "user": "alice", "question": "Quelle part de la valeur du titre-restaurant l'employeur doit-il financer ?", "expected_documents": ["F21059"], "expected_keywords": ["50 %", "60 %"]},
+    {"id": "sp-retraite-age", "user": "alice", "question": "À quel âge peut partir à la retraite un salarié né en 1970 ?", "expected_documents": ["F14043"], "expected_keywords": ["64 ans"]},
+
+    {"id": "sp-rh-age-minimum", "user": "bruno", "question": "À partir de quel âge peut-on embaucher un jeune ?", "expected_documents": ["F1649"], "expected_keywords": ["16 ans"]},
+    {"id": "sp-rh-abandon-poste", "user": "bruno", "question": "Quel délai minimum laisser à un salarié pour reprendre son poste après un abandon de poste ?", "expected_documents": ["F31209"], "expected_keywords": ["15 jours"]},
+    {"id": "sp-rh-faute-simple", "user": "bruno", "question": "Un salarié licencié pour faute simple perçoit-il une indemnité de licenciement ?", "expected_documents": ["F1137"], "expected_keywords": ["oui"]},
+    {"id": "sp-rh-promesse", "user": "bruno", "question": "Que risque l'employeur qui ne respecte pas une promesse d'embauche unilatérale ?", "expected_documents": ["F10403"], "expected_keywords": ["licenciement"]},
+    {"id": "sp-rh-essai-renouvellement", "user": "bruno", "question": "La période d'essai d'un CDI peut-elle être renouvelée ?", "expected_documents": ["F13919"], "expected_keywords": ["1 fois"]},
+
+    {"id": "sp-dir-greve", "user": "claire", "question": "Quelles conditions doit réunir une grève pour être licite ?", "expected_documents": ["F117"], "expected_keywords": ["collectif", "revendications"]},
+    {"id": "sp-dir-prudhommes", "user": "claire", "question": "Par quelle étape commence une affaire devant le conseil de prud'hommes ?", "expected_documents": ["F1052"], "expected_keywords": ["conciliation"]},
+    {"id": "sp-dir-inspection", "user": "claire", "question": "Quelles sont les missions de l'inspection du travail ?", "expected_documents": ["F107"], "expected_keywords": ["contrôler", "conseiller"]},
+
+    {"id": "sp-acces-abandon-refuse", "user": "alice", "question": "Quel délai minimum laisser à un salarié pour reprendre son poste après un abandon de poste ?", "answerable": false, "forbidden_documents": ["F31209"]},
+    {"id": "sp-acces-age-refuse", "user": "claire", "question": "À partir de quel âge peut-on embaucher un jeune ?", "answerable": false, "forbidden_documents": ["F1649"]},
+    {"id": "sp-acces-greve-refuse", "user": "alice", "question": "Quelles conditions doit réunir une grève pour être licite ?", "answerable": false, "forbidden_documents": ["F117"]},
+    {"id": "sp-acces-prudhommes-refuse", "user": "bruno", "question": "Par quelle étape commence une affaire devant le conseil de prud'hommes ?", "answerable": false, "forbidden_documents": ["F1052"]},
+
+    {"id": "sp-hors-capitale", "user": "alice", "question": "Quelle est la capitale de l'Australie ?", "answerable": false},
+    {"id": "sp-hors-recette", "user": "alice", "question": "Donne-moi une recette de tarte aux pommes.", "answerable": false},
+    {"id": "sp-hors-permis", "user": "alice", "question": "Comment renouveler mon permis de conduire ?", "answerable": false},
+    {"id": "sp-hors-parking", "user": "alice", "question": "Combien de places de parking vélo y a-t-il au siège ?", "answerable": false},
+    {"id": "sp-hors-difficile-fonction-publique", "user": "alice", "question": "Combien de jours de congés annuels a un fonctionnaire territorial ?", "answerable": false},
+    {"id": "sp-hors-difficile-impots", "user": "alice", "question": "Quand dois-je déclarer mes impôts sur le revenu ?", "answerable": false}
+  ]
+}

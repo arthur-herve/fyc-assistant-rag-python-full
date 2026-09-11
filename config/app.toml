@@ -1,0 +1,70 @@
+# Configuration de l'application (serveur applicatif).
+# Elle ne contient AUCUN détail de modèle : seulement l'adresse du service IA
+# et les alias des modèles à utiliser.
+
+[ai_service]
+base_url = "http://127.0.0.1:8100"
+embedding_model = "hashing"       # changer ce modèle impose de réindexer
+generation_model = "extractive"   # changer ce modèle ne touche pas à l'index
+timeout_seconds = 300
+
+[corpus]
+directory = "corpus/solveo"   # 9 documents fictifs : tests et démarrage hors-ligne
+# directory = "corpus/service-public"   # 324 fiches réelles (voir config/app-ollama.toml)
+
+[index]
+path = "data/index.json"
+
+[snapshots]
+directory = "eval/instantanes"   # python -m assistant snapshot record <nom> / compare <a> <b>
+
+[splitter]
+max_chars = 800
+overlap_chars = 120
+include_title = true
+
+[retrieval]
+top_k = 4
+
+# Seuil de pertinence PAR modèle d'embeddings : les scores ne se comparent pas
+# d'un modèle à l'autre. Calibrés sur le corpus Solvéo (24 questions) par le banc
+# d'essai du 11/09/2026 (eval/resultats/2026-09-11-complet) : nomic 0,59
+# (séparation 0,83 seulement : les questions hors corpus scorent 0,64 en médiane,
+# contre 0,72 pour les répondables), bge-m3 0,46 (séparation 0,96). Les autres
+# valeurs sont des valeurs de départ, non mesurées.
+[retrieval.min_score]
+default = 0.40
+hashing = 0.15
+hashing-512 = 0.15
+all-minilm = 0.35
+nomic = 0.59
+mxbai = 0.55
+bge-m3 = 0.46
+st-multilingual-minilm = 0.40
+st-e5-small = 0.82
+
+# Décorateurs empilés sur les ports par composition.py (séquence 4.1). Aucun
+# n'est connu des cas d'usage. Le journal s'affiche avec -v ou ASSISTANT_LOG=INFO.
+[decorators]
+validate_output = true     # rejette une sortie vide, trop longue, en anglais ou qui raisonne
+max_output_chars = 1500
+cache_embeddings = true    # mémoire du processus ; un cache persistant devrait porter le modèle
+log = true
+retries = 1                # nouvelles tentatives quand le service IA est injoignable
+
+[generation]
+prompt = "answer"          # fichier assistant/prompts/<nom>.toml ; variante : "answer-v2" (séquence 3.3)
+temperature = 0.2
+max_tokens = 400
+max_attempts = 2
+# seed = 42   # décommenter pour réduire (sans supprimer) la variabilité
+
+# Utilisateurs de démonstration. En production : annuaire d'entreprise (SSO).
+[users.alice]
+groups = ["tous"]
+
+[users.bruno]
+groups = ["tous", "rh"]
+
+[users.claire]
+groups = ["tous", "direction"]

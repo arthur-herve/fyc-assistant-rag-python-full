@@ -1,0 +1,32 @@
+{
+  "description": "Questions d'évaluation du fil rouge. 'answerable' = la réponse existe dans un document accessible à l'utilisateur. 'forbidden_documents' = documents que la réponse ne doit jamais citer pour cet utilisateur.",
+  "questions": [
+    {"id": "tt-jours", "user": "alice", "question": "Combien de jours de télétravail par semaine ai-je le droit de prendre ?", "expected_documents": ["teletravail"], "expected_keywords": ["deux jours"]},
+    {"id": "tt-indemnite", "user": "alice", "question": "Quel est le montant de l'indemnité de télétravail ?", "expected_documents": ["teletravail"], "expected_keywords": ["30 euros"]},
+    {"id": "tt-etranger", "user": "alice", "question": "Puis-je travailler depuis l'étranger ?", "expected_documents": ["teletravail"], "expected_keywords": ["dix jours"]},
+    {"id": "frais-delai", "user": "alice", "question": "Dans quel délai dois-je déposer une note de frais ?", "expected_documents": ["notes-de-frais"], "expected_keywords": ["30 jours"]},
+    {"id": "frais-repas", "user": "alice", "question": "Quel est le plafond pour un repas d'affaires le midi ?", "expected_documents": ["notes-de-frais"], "expected_keywords": ["25 euros"]},
+    {"id": "frais-train", "user": "alice", "question": "Ai-je droit à la première classe en train ?", "expected_documents": ["notes-de-frais"], "expected_keywords": ["trois heures"]},
+    {"id": "conges-nombre", "user": "alice", "question": "Combien de jours de congés payés ai-je par an ?", "expected_documents": ["conges"], "expected_keywords": ["25 jours"]},
+    {"id": "conges-report", "user": "alice", "question": "Jusqu'à quand puis-je reporter mes congés non pris ?", "expected_documents": ["conges"], "expected_keywords": ["31 mai"]},
+    {"id": "conges-enfant", "user": "alice", "question": "Mon enfant est malade, ai-je droit à des jours d'absence ?", "expected_documents": ["conges"], "expected_keywords": ["trois jours"]},
+    {"id": "it-mdp", "user": "alice", "question": "Quelle longueur minimale doit avoir mon mot de passe ?", "expected_documents": ["charte-informatique"], "expected_keywords": ["12 caractères"]},
+    {"id": "it-ia", "user": "alice", "question": "Ai-je le droit de coller du code source dans ChatGPT ?", "expected_documents": ["charte-informatique"], "expected_keywords": ["interdit"]},
+    {"id": "it-incident", "user": "alice", "question": "À qui signaler un courriel suspect ?", "expected_documents": ["charte-informatique"], "expected_keywords": ["securite@solveo.example"]},
+    {"id": "support-p1", "user": "alice", "question": "En combien de temps un incident P1 est-il pris en charge ?", "expected_documents": ["support-incidents"], "expected_keywords": ["30 minutes"]},
+    {"id": "support-pret", "user": "alice", "question": "Mon ordinateur est en panne, puis-je avoir un poste de prêt ?", "expected_documents": ["support-incidents"], "expected_keywords": ["15 h"]},
+    {"id": "onboarding-formation", "user": "alice", "question": "Quel est mon budget de formation annuel ?", "expected_documents": ["onboarding"], "expected_keywords": ["1 200 euros"]},
+    {"id": "onboarding-parrain", "user": "alice", "question": "Combien de temps dure le parrainage d'un nouvel arrivant ?", "expected_documents": ["onboarding"], "expected_keywords": ["trois mois"]},
+
+    {"id": "rh-salaire-autorise", "user": "bruno", "question": "Quelle est la fourchette de salaire d'un consultant senior ?", "expected_documents": ["grille-salaires"], "expected_keywords": ["56 000", "68 000"]},
+    {"id": "rh-calibration-autorise", "user": "bruno", "question": "Quand ont lieu les entretiens annuels ?", "expected_documents": ["entretiens-annuels"], "expected_keywords": ["15 janvier"]},
+    {"id": "direction-ca-autorise", "user": "claire", "question": "Quel chiffre d'affaires vise le plan stratégique pour 2027 ?", "expected_documents": ["plan-strategique"], "expected_keywords": ["42 millions"]},
+
+    {"id": "acces-salaire-refuse", "user": "alice", "question": "Quelle est la fourchette de salaire d'un consultant senior ?", "answerable": false, "forbidden_documents": ["grille-salaires"]},
+    {"id": "acces-acquisition-refuse", "user": "bruno", "question": "Quel cabinet Solvéo prévoit-il d'acquérir ?", "answerable": false, "forbidden_documents": ["plan-strategique"]},
+
+    {"id": "hors-corpus-capitale", "user": "alice", "question": "Quelle est la capitale de l'Australie ?", "answerable": false},
+    {"id": "hors-corpus-recette", "user": "alice", "question": "Donne-moi une recette de tarte aux pommes.", "answerable": false},
+    {"id": "hors-corpus-parking", "user": "alice", "question": "Combien de places de parking vélo y a-t-il au siège ?", "answerable": false}
+  ]
+}

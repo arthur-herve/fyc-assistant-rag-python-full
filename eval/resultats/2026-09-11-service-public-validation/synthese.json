@@ -1,0 +1,70 @@
+{
+  "retrieval": [
+    {
+      "embedding": "nomic",
+      "model_id": "ollama:nomic-embed-text@0a109f422b47",
+      "dimension": 768,
+      "chunks": 3505,
+      "index_seconds": 60.6,
+      "hit@1": 0.692,
+      "hit@k": 0.846,
+      "top_k": 4,
+      "top1_median_answerable": 0.808,
+      "top1_median_unanswerable": 0.742,
+      "configured_threshold": 0.73,
+      "suggested_threshold": 0.755,
+      "separation_accuracy": 0.938,
+      "threshold_used": 0.73
+    },
+    {
+      "embedding": "bge-m3",
+      "model_id": "ollama:bge-m3@790764642607",
+      "dimension": 1024,
+      "chunks": 3505,
+      "index_seconds": 182.7,
+      "hit@1": 0.769,
+      "hit@k": 0.923,
+      "top_k": 4,
+      "top1_median_answerable": 0.717,
+      "top1_median_unanswerable": 0.612,
+      "configured_threshold": 0.65,
+      "suggested_threshold": 0.62,
+      "separation_accuracy": 0.938,
+      "threshold_used": 0.65
+    }
+  ],
+  "generation": [
+    {
+      "embedding": "nomic",
+      "generation": "extractive",
+      "calls": 16,
+      "errors": 0,
+      "answer_rate": 1.0,
+      "source_hit_rate": 0.692,
+      "keyword_coverage": 0.308,
+      "unsourced_rate": 0.0,
+      "correct_refusal_rate": 0.333,
+      "forbidden_leaks": 0,
+      "stability": null,
+      "mean_attempts": 1.0,
+      "latency_median_ms": 240.5,
+      "latency_p90_ms": 311.0
+    },
+    {
+      "embedding": "bge-m3",
+      "generation": "extractive",
+      "calls": 16,
+      "errors": 0,
+      "answer_rate": 0.923,
+      "source_hit_rate": 0.917,
+      "keyword_coverage": 0.417,
+      "unsourced_rate": 0.0,
+      "correct_refusal_rate": 1.0,
+      "forbidden_leaks": 0,
+      "stability": null,
+      "mean_attempts": 1.0,
+      "latency_median_ms": 354.0,
+      "latency_p90_ms": 417.0
+    }
+  ]
+}

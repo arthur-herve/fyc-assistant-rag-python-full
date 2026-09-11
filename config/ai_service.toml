@@ -1,0 +1,127 @@
+# Configuration du service IA : quels modèles sont servis, et par quel moteur.
+# L'application ne connaît que les ALIAS (clés entre crochets).
+#
+# Modèles Ollama : les télécharger avant usage, par exemple
+#   ollama pull nomic-embed-text
+#   ollama pull qwen3:1.7b
+# Les noms exacts sont à vérifier sur https://ollama.com/library
+
+[server]
+host = "127.0.0.1"   # mettre "0.0.0.0" pour servir d'autres machines du réseau
+port = 8100
+
+[defaults.ollama]
+base_url = "http://127.0.0.1:11434"
+
+[defaults.openai-compatible]
+base_url = "http://127.0.0.1:1234/v1"   # LM Studio par défaut ; llama.cpp : 8080
+
+# ---------------------------------------------------------------------------
+# Modèles d'embeddings
+# ---------------------------------------------------------------------------
+
+[embedding.hashing]
+backend = "hashing"
+description = "Hors-ligne, sans modèle appris (sac de mots haché). Plancher de comparaison."
+dimension = 256
+
+[embedding.hashing-512]
+backend = "hashing"
+description = "Même principe, autre dimension : sert à montrer qu'un index ne survit pas au changement."
+dimension = 512
+
+[embedding.all-minilm]
+backend = "ollama"
+description = "384 dim., ~46 Mo, entraîné surtout en anglais : attendu faible sur un corpus français."
+model = "all-minilm"
+
+[embedding.nomic]
+backend = "ollama"
+description = "768 dim., ~270 Mo, exige des préfixes de tâche."
+model = "nomic-embed-text"
+query_prefix = "search_query: "
+document_prefix = "search_document: "
+
+[embedding.mxbai]
+backend = "ollama"
+description = "1024 dim., ~670 Mo, préfixe d'instruction côté requête uniquement."
+model = "mxbai-embed-large"
+query_prefix = "Represent this sentence for searching relevant passages: "
+
+[embedding.bge-m3]
+backend = "ollama"
+description = "1024 dim., ~1,2 Go, multilingue."
+model = "bge-m3"
+
+# Optionnels : nécessitent pip install -r requirements-ai-optional.txt
+[embedding.st-multilingual-minilm]
+backend = "sentence-transformers"
+description = "384 dim., multilingue, exécuté par PyTorch sur CPU."
+model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+[embedding.st-e5-small]
+backend = "sentence-transformers"
+description = "384 dim., multilingue, exige les préfixes query/passage."
+model = "intfloat/multilingual-e5-small"
+query_prefix = "query: "
+document_prefix = "passage: "
+
+# ---------------------------------------------------------------------------
+# Modèles de génération
+# ---------------------------------------------------------------------------
+
+[generation.extractive]
+backend = "extractive"
+description = "Hors-ligne et déterministe : recopie la phrase la plus proche et la cite."
+
+[generation.extractive-bruite]
+backend = "extractive"
+description = "Hors-ligne, simule un modèle imparfait : réponses variables, citations oubliées."
+citation_failure_rate = 0.3
+randomize = true
+model_id = "extractive-bruite"
+
+[generation.gemma3-1b]
+backend = "ollama"
+description = "~0,8 Go. Tourne sur presque tout, qualité limitée."
+model = "gemma3:1b"
+
+# Modèles qwen3 : le mode réflexion reste ACTIVÉ (think = true) et reçoit son
+# propre budget de jetons. Mesuré le 11/09/2026 (Ollama 0.34, qwen3:4b) :
+# think = false déverse le raisonnement dans la réponse, sans balise ;
+# think = true le renvoie à part, et la réponse est propre. C'est une
+# particularité du modèle : elle se règle ici, jamais dans l'application.
+[generation.qwen3-1b7]
+backend = "ollama"
+description = "~1,4 Go. Réflexion activée et écartée, budget séparé."
+model = "qwen3:1.7b"
+think = true
+thinking_tokens = 1200
+
+[generation.llama3-2-3b]
+backend = "ollama"
+description = "~2 Go. Bon compromis sur un portable récent."
+model = "llama3.2:3b"
+
+[generation.qwen3-4b]
+backend = "ollama"
+description = "~2,5 Go. Réflexion activée et écartée, budget séparé : ~10 s par réponse sur GPU."
+model = "qwen3:4b"
+think = true
+thinking_tokens = 1200
+
+[generation.gemma3-4b]
+backend = "ollama"
+description = "~3,3 Go."
+model = "gemma3:4b"
+
+[generation.mistral-7b]
+backend = "ollama"
+description = "~4,1 Go. Confortable avec 16 Go de RAM ou un GPU de 6 Go et plus."
+model = "mistral:7b"
+
+# Exemple de serveur compatible OpenAI (LM Studio, llama.cpp, vLLM)
+[generation.lmstudio]
+backend = "openai-compatible"
+description = "Modèle chargé dans LM Studio (renseigner le nom exact)."
+model = "nom-du-modele-charge"

@@ -1,0 +1,102 @@
+{
+  "retrieval": [
+    {
+      "embedding": "nomic",
+      "model_id": "ollama:nomic-embed-text@0a109f422b47",
+      "dimension": 768,
+      "chunks": 3505,
+      "index_seconds": 43.0,
+      "hit@1": 0.781,
+      "hit@k": 0.938,
+      "top_k": 4,
+      "top1_median_answerable": 0.801,
+      "top1_median_unanswerable": 0.712,
+      "configured_threshold": 0.55,
+      "suggested_threshold": 0.733,
+      "separation_accuracy": 0.905,
+      "threshold_used": 0.55
+    },
+    {
+      "embedding": "bge-m3",
+      "model_id": "ollama:bge-m3@790764642607",
+      "dimension": 1024,
+      "chunks": 3505,
+      "index_seconds": 82.1,
+      "hit@1": 0.969,
+      "hit@k": 0.969,
+      "top_k": 4,
+      "top1_median_answerable": 0.737,
+      "top1_median_unanswerable": 0.552,
+      "configured_threshold": 0.45,
+      "suggested_threshold": 0.645,
+      "separation_accuracy": 0.976,
+      "threshold_used": 0.45
+    }
+  ],
+  "generation": [
+    {
+      "embedding": "nomic",
+      "generation": "extractive",
+      "calls": 126,
+      "errors": 0,
+      "answer_rate": 1.0,
+      "source_hit_rate": 0.812,
+      "keyword_coverage": 0.312,
+      "unsourced_rate": 0.0,
+      "correct_refusal_rate": 0.0,
+      "forbidden_leaks": 0,
+      "stability": 1.0,
+      "mean_attempts": 1.0,
+      "latency_median_ms": 229.0,
+      "latency_p90_ms": 260.0
+    },
+    {
+      "embedding": "nomic",
+      "generation": "llama3-2-3b",
+      "calls": 126,
+      "errors": 0,
+      "answer_rate": 0.979,
+      "source_hit_rate": 0.84,
+      "keyword_coverage": 0.798,
+      "unsourced_rate": 0.071,
+      "correct_refusal_rate": 0.0,
+      "forbidden_leaks": 0,
+      "stability": 0.857,
+      "mean_attempts": 1.127,
+      "latency_median_ms": 1701.0,
+      "latency_p90_ms": 2903.0
+    },
+    {
+      "embedding": "bge-m3",
+      "generation": "extractive",
+      "calls": 126,
+      "errors": 0,
+      "answer_rate": 1.0,
+      "source_hit_rate": 0.969,
+      "keyword_coverage": 0.281,
+      "unsourced_rate": 0.0,
+      "correct_refusal_rate": 0.2,
+      "forbidden_leaks": 0,
+      "stability": 1.0,
+      "mean_attempts": 1.0,
+      "latency_median_ms": 329.0,
+      "latency_p90_ms": 383.0
+    },
+    {
+      "embedding": "bge-m3",
+      "generation": "llama3-2-3b",
+      "calls": 126,
+      "errors": 0,
+      "answer_rate": 1.0,
+      "source_hit_rate": 0.927,
+      "keyword_coverage": 0.823,
+      "unsourced_rate": 0.024,
+      "correct_refusal_rate": 0.2,
+      "forbidden_leaks": 0,
+      "stability": 0.929,
+      "mean_attempts": 1.05,
+      "latency_median_ms": 1615.0,
+      "latency_p90_ms": 2461.0
+    }
+  ]
+}
