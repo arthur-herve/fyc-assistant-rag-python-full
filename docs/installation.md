@@ -96,10 +96,10 @@ python -m assistant index --config config/app-ollama.toml
 python -m assistant ask "Combien de jours dure le congé de paternité ?" --config config/app-ollama.toml -v
 ```
 
-Attendu : l'indexation des 322 fiches prend **1 à 3 minutes** avec `bge-m3` sur une carte
-graphique, **10 à 20 minutes** sur processeur seul (elle ne se fait qu'une fois) ; la réponse
-arrive ensuite en 1 à 3 secondes sur GPU, 10 à 30 secondes sur CPU, et cite une fiche sur le congé de
-paternité (`F3156` ou `F12647`).
+Attendu : l'indexation des 322 fiches prend **1 à 3 minutes** avec `bge-m3` sur la machine de
+référence (carte graphique) — elle ne se fait qu'une fois ; la réponse arrive ensuite en 1 à 3
+secondes et cite une fiche sur le congé de paternité (`F3156` ou `F12647`). Sur processeur seul,
+comptez un ordre de grandeur de plus (non mesuré : à relever sur vos machines et à nous signaler).
 
 ## Ce qui peut coincer
 
@@ -115,5 +115,6 @@ paternité (`F3156` ou `F12647`).
 ## Machine de référence du cours
 
 Les durées et les rapports de `eval/resultats/` ont été mesurés sur : Windows 11, AMD Ryzen 7
-5800H, 15 Go de RAM, NVIDIA RTX 3070 Laptop 8 Go, Ollama 0.34, Python 3.13. Sans carte graphique,
-multipliez les temps de génération par 5 à 10 ; le cours reste suivable.
+5800H, 15 Go de RAM, NVIDIA RTX 3070 Laptop 8 Go, Ollama 0.34, Python 3.13. Les temps sans carte
+graphique n'ont pas encore été mesurés ; le cours reste suivable, le mode hors-ligne couvre tout
+ce qui ne demande pas un vrai modèle.
