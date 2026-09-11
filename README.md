@@ -50,7 +50,8 @@ eval/questions*.json        questions d'évaluation : Solvéo ; Service-Public (
 docs/contrat-http.md        contrat entre les deux programmes
 docs/artefacts.md           les sept artefacts à versionner ensemble, et ce que le code détecte
 docs/adr/                   huit décisions d'architecture, avec ce qui a été écarté
-docs/exercices/             énoncés et corrigés des exercices de code
+exercices/                  exercices de code : kits de départ, énoncés, corrigés (S2.2, S3.1, S4.1)
+cas-pratique/               S5.1 : une version mal structurée du fil rouge à rendre maintenable, énoncé, grille, corrigé
 tests/                      125 tests, bibliothèque standard uniquement
 ```
 
@@ -210,6 +211,13 @@ AI_SERVICE_URL=http://machine-gpu:8100 python -m assistant serve --host 0.0.0.0
 
 ⚠️ Le service IA n'a **aucune authentification** : il est prévu pour un réseau interne. En production, le placer derrière un proxy authentifié.
 
+## Points de départ pour les apprenants
+
+- `exercices/s2.2-coeur-metier/depart/` : kit autonome, à copier où l'on veut.
+- Branche `s4.1-depart` : le dépôt sans le décorateur de validation, ses tests fournis (`git switch s4.1-depart`).
+- `cas-pratique/depart/` : l'application à refondre.
+- Étiquette `fil-rouge-2026-09-11` : l'état de référence du fil rouge à la fin de sa réalisation ; les étiquettes par séquence (`sX.Y-depart` / `sX.Y-solution`) seront posées avec le découpage définitif du cours.
+
 ## Tests
 
 ```bash
@@ -229,14 +237,15 @@ python -m unittest discover -s tests -t .
 | Séquence | Dans le code |
 |---|---|
 | 1.3 / 2.3 — le modèle derrière un port | `application/ports.py` (`Embedder`, `Generator`) · `infrastructure/http_ai_client.py` |
-| 2.2 — un cœur testable sans IA | `tests/unit/test_ask_question.py` · `tests/architecture/test_dependency_rule.py` |
+| 2.2 — un cœur testable sans IA | `tests/unit/test_ask_question.py` · `tests/architecture/test_dependency_rule.py` · kit `exercices/s2.2-coeur-metier/` |
 | 2.3 — substituer le générateur | `--generation-model` : même index, rien d'autre à changer |
-| 3.1 — non-déterminisme et testabilité | vérification déterministe des citations (`domain/citations.py`) autour d'un appel probabiliste · nouvelles tentatives · `tests/unit/test_statistical_evaluation.py` · générateur `extractive-bruite` · métrique de stabilité du banc · instantanés (`snapshot record/compare`) · `tools/experiences/stabilite.py` · `--validate-with` du banc · exercice `docs/exercices/s3.1-…` |
+| 3.1 — non-déterminisme et testabilité | vérification déterministe des citations (`domain/citations.py`) autour d'un appel probabiliste · nouvelles tentatives · `tests/unit/test_statistical_evaluation.py` · générateur `extractive-bruite` · métrique de stabilité du banc · instantanés (`snapshot record/compare`) · `tools/experiences/stabilite.py` · `--validate-with` du banc · exercice `exercices/s3.1-evaluation-statistique/` |
 | 3.2 — les données sont du code (CACE) | `IndexModelMismatchError` · découpage enregistré dans le manifeste · seuil de pertinence **par modèle et par corpus** · `tools/experiences/cace_decoupage.py` et `changement_embeddings.py` · ADR 0004 |
 | 3.3 — le prompt : configuration ou métier ? | `prompts/answer.toml` et `answer-v2.toml` : construits par l'application, versionnés, tracés dans chaque réponse · `tools/experiences/prompt_v2.py` et `changement_generateur.py` · ADR 0005 |
-| 4.1 — isoler l'incertitude | les droits d'accès filtrent **avant** le modèle ; les préfixes propres aux modèles sont gérés dans `ai_service/registry.py` ; les balises `<think>` et le budget de réflexion dans `backends/ollama.py` ; **décorateurs** empilés par `composition.decorate()` : `infrastructure/decorators.py` (cache, journal, tentatives) et `application/guards.py` (validation de la forme : `domain/output_rules.py`) ; exercice `docs/exercices/s4.1-decorateur-de-validation.md` ; ADR 0008 |
+| 4.1 — isoler l'incertitude | les droits d'accès filtrent **avant** le modèle ; les préfixes propres aux modèles sont gérés dans `ai_service/registry.py` ; les balises `<think>` et le budget de réflexion dans `backends/ollama.py` ; **décorateurs** empilés par `composition.decorate()` : `infrastructure/decorators.py` (cache, journal, tentatives) et `application/guards.py` (validation de la forme : `domain/output_rules.py`) ; exercice `exercices/s4.1-decorateur-de-validation/` (branche `s4.1-depart`) ; ADR 0008 |
 | 4.2 — versionner ensemble | `IndexManifest` (empreinte du corpus, découpage, modèle concret) · `AnswerTrace` (index, modèles, version du prompt, passages et scores) · `status` (`application/status.py`) · instantanés et dérive (`application/snapshots.py`) · port `Clock` · `docs/artefacts.md` |
-| 4.3 — les limites | index JSON à recherche exhaustive : suffisant pour quelques centaines de morceaux, inutile de sortir une base vectorielle |
+| 4.3 — les limites | index JSON à recherche exhaustive : 0,3 s pour 3 505 morceaux, inutile de sortir une base vectorielle ; ADR 0007 |
+| 5.1 / 5.2 — le cas pratique | `cas-pratique/depart/assistant_rag.py` (version mal structurée, fonctionnelle), énoncé, grille sur 20, tableau défaut → correction |
 
 ## Limites connues
 
