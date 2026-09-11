@@ -47,6 +47,7 @@ corpus/service-public/      322 fiches réelles Service-Public.gouv.fr (DILA, Li
 tools/import_service_public.py  reconstruit ce corpus depuis l'archive XML de la DILA
 tools/experiences/          cinq expériences reproductibles (découpage, embeddings, générateur, prompt, stabilité)
 eval/questions*.json        questions d'évaluation : Solvéo ; Service-Public (calibration) ; Service-Public (validation)
+docs/installation.md        guide pas à pas Windows / macOS / Linux, durées mesurées, pannes courantes
 docs/contrat-http.md        contrat entre les deux programmes
 docs/artefacts.md           les sept artefacts à versionner ensemble, et ce que le code détecte
 docs/adr/                   huit décisions d'architecture, avec ce qui a été écarté
@@ -56,6 +57,8 @@ tests/                      125 tests, bibliothèque standard uniquement
 ```
 
 ## Démarrage rapide (hors-ligne, sans modèle)
+
+Première installation (Python, Git, Ollama, modèles) : `docs/installation.md`.
 
 Toutes les commandes se lancent depuis la racine du projet. Sous Windows, remplacer `python` par `py` si nécessaire.
 
