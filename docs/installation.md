@@ -28,8 +28,8 @@ Dans la suite, `python` désigne `py` sous Windows, `python3` sous macOS et Linu
 | Linux | `sudo apt install git` |
 
 ```bash
-git clone https://github.com/arthur-herve/fyc-assistant-rag.git
-cd fyc-assistant-rag
+git clone https://github.com/arthur-herve/fyc-assistant-rag-python-full.git
+cd fyc-assistant-rag-python-full
 python -m unittest discover -s tests -t .
 ```
 

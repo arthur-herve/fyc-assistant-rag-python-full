@@ -22,10 +22,22 @@ class FilePromptRepository:
         # Normalise les fins de ligne : l'empreinte est la même sous Windows et Linux.
         text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
         data = tomllib.loads(text)
-        fingerprint = hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+        version, system, user = data["version"], data["system"].strip(), data["user"].strip()
         return PromptTemplate(
             name=name,
-            version=f"{data['version']}+{fingerprint}",
-            system=data["system"].strip(),
-            user=data["user"].strip(),
+            version=f"{version}+{prompt_fingerprint(version, system, user)}",
+            system=system,
+            user=user,
         )
+
+
+def prompt_fingerprint(version: str, system: str, user: str) -> str:
+    """Empreinte canonique d'un prompt : SHA-256 de « version, system, user » séparés
+    par des sauts de ligne, 8 premiers caractères hexadécimaux.
+
+    Elle porte sur le contenu, pas sur le fichier : le même prompt en TOML ici et en
+    JSON dans la version C# porte la même version, et les instantanés des deux
+    versions se comparent sans écart. Même formule que ``Files.cs`` côté C#.
+    """
+    canonical = f"{version}\n{system}\n{user}".replace("\r\n", "\n")
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:8]
