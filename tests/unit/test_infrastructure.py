@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from assistant.infrastructure.clock import SystemClock
 from assistant.infrastructure.prompt_files import FilePromptRepository
 from assistant.infrastructure.snapshot_files import JsonSnapshotStore, SnapshotNotFoundError
 from assistant.infrastructure.splitter import ParagraphSplitter
-from assistant.infrastructure.vector_index import JsonVectorIndex
+from assistant.infrastructure.vector_index import IndexUnreadableError, JsonVectorIndex
 from tests.fakes import make_document
 
 
@@ -21,9 +22,21 @@ class MarkdownCorpusTest(unittest.TestCase):
         self.assertEqual((doc.id, doc.title, doc.text), ("rh", "Guide RH", "Texte."))
         self.assertEqual(doc.allowed_groups, frozenset({"rh", "direction"}))
 
-    def test_documents_are_public_by_default(self):
-        doc = parse_markdown_document("---\nid: a\n---\nTexte.")
-        self.assertEqual(doc.allowed_groups, frozenset({"tous"}))
+    def test_access_groups_are_mandatory(self):
+        """Un droit oublié ou mal écrit ne rend jamais un document public en silence."""
+        for header in ("id: a", "id: a\ngroupes:", "id: a\ngroupe: rh"):
+            with self.subTest(header=header), self.assertRaises(CorpusFormatError):
+                parse_markdown_document(f"---\n{header}\n---\nTexte.")
+
+    def test_a_comment_in_the_groups_is_rejected(self):
+        """L'exemple commenté d'une ancienne documentation donnait des droits faux."""
+        with self.assertRaises(CorpusFormatError):
+            parse_markdown_document("---\nid: a\ngroupes: rh  # ou : rh, direction\n---\nTexte.")
+
+    def test_a_file_with_a_byte_order_mark_loads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "a.md").write_text("---\nid: a\ngroupes: tous\n---\nTexte.", encoding="utf-8-sig")
+            self.assertEqual(MarkdownCorpus(tmp).load()[0].id, "a")
 
     def test_id_is_mandatory(self):
         with self.assertRaises(CorpusFormatError):
@@ -89,6 +102,14 @@ class JsonVectorIndexTest(unittest.TestCase):
             results = index.search([0, 1], 5, predicate=lambda c: "rh" not in c.allowed_groups)
             self.assertEqual([p.chunk.id for p in results], ["a#0"])
 
+    def test_forbidden_passages_take_no_place_in_the_top_k(self):
+        """Pré-filtrage (ADR 0006) : un passage interdit mieux classé ne masque pas le passage autorisé."""
+        with tempfile.TemporaryDirectory() as tmp:
+            index = JsonVectorIndex(Path(tmp) / "index.json")
+            index.replace(self.manifest(), self.chunks(), [[1, 0], [0, 1]])
+            results = index.search([0, 1], 1, predicate=lambda c: "rh" not in c.allowed_groups)
+            self.assertEqual([p.chunk.id for p in results], ["a#0"])
+
     def test_rejects_vectors_of_the_wrong_dimension(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):
@@ -98,6 +119,49 @@ class JsonVectorIndexTest(unittest.TestCase):
     def test_missing_file_means_no_index(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertIsNone(JsonVectorIndex(Path(tmp) / "absent.json").manifest())
+
+    def test_an_unreadable_file_is_not_an_absent_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "index.json"
+            path.write_text("{ pas du json", encoding="utf-8")
+            index = JsonVectorIndex(path)
+            for _ in range(2):   # la deuxième lecture ne dit pas « aucun index » non plus
+                with self.assertRaises(IndexUnreadableError):
+                    index.manifest()
+
+    def test_an_index_rebuilt_by_another_process_is_seen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "index.json"
+            JsonVectorIndex(path).replace(self.manifest(), self.chunks(), [[1, 0], [0, 1]])
+            server = JsonVectorIndex(path)                       # le processus `serve`
+            self.assertEqual(server.manifest().index_id, "id")
+            rebuilt = IndexManifest("id-2", "m", 2, "fp", {}, 1, 1, "2026-09-21T00:00:00+00:00")
+            JsonVectorIndex(path).replace(rebuilt, self.chunks()[:1], [[1, 0]])   # `index` en ligne de commande
+            stat = path.stat()
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 10**9))   # une seconde plus tard
+            self.assertEqual(server.manifest().index_id, "id-2")
+            self.assertEqual(len(server.search([1, 0], 5, predicate=lambda c: True)), 1)
+
+    def test_an_index_rebuilt_with_the_same_size_and_date_is_seen(self):
+        """Même taille, même date : seule la reconstruction (nouveau fichier) les distingue."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "index.json"
+            first = IndexManifest("id", "m", 2, "fp", {}, 1, 2, "t1")
+            JsonVectorIndex(path).replace(first, self.chunks(), [[1, 0], [0, 1]])
+            server = JsonVectorIndex(path)
+            self.assertEqual(server.manifest().created_at, "t1")
+            stat = path.stat()
+            JsonVectorIndex(path).replace(IndexManifest("id", "m", 2, "fp", {}, 1, 2, "t2"), self.chunks(), [[1, 0], [0, 1]])
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            self.assertEqual(path.stat().st_size, stat.st_size)
+            self.assertEqual(server.manifest().created_at, "t2")
+
+    def test_rejects_a_query_of_the_wrong_dimension(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            index = JsonVectorIndex(Path(tmp) / "index.json")
+            index.replace(self.manifest(), self.chunks(), [[1, 0], [0, 1]])
+            with self.assertRaises(ValueError):
+                index.search([1, 0, 0], 2, predicate=lambda c: True)
 
 
 class PromptRepositoryTest(unittest.TestCase):
@@ -110,6 +174,16 @@ class PromptRepositoryTest(unittest.TestCase):
             second = FilePromptRepository(tmp).get("answer").version
         self.assertTrue(first.startswith("v1+"))
         self.assertNotEqual(first, second)  # modifié sans changer la version : détecté
+
+    def test_an_incomplete_prompt_names_the_file(self):
+        """Édité à la main : un champ oublié donne une erreur qui dit quoi corriger, pas une KeyError."""
+        for content in ('system = "a"\nuser = "{question}"\n',               # sans version
+                        'version = 2\nsystem = "a"\nuser = "{question}"\n',  # version qui n'est pas un texte
+                        'version = "v1\n'):                                    # TOML invalide
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "casse.toml").write_text(content, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "casse.toml"):
+                    FilePromptRepository(tmp).get("casse")
 
     def test_project_prompt_renders(self):
         prompt = FilePromptRepository(PROMPTS_DIR).get("answer")
@@ -132,8 +206,24 @@ class JsonSnapshotStoreTest(unittest.TestCase):
                 store.load("absent")
 
     def test_rejects_names_that_could_escape_the_directory(self):
-        with self.assertRaises(ValueError):
-            JsonSnapshotStore("x").load("../autre")
+        for name in ("../autre", "ref\n"):   # « $ » laisserait passer un saut de ligne final
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                JsonSnapshotStore("x").load(name)
+
+    def test_an_incomplete_snapshot_names_the_file(self):
+        entry = {"question_id": "q", "user_id": "a", "question": "?", "status": "answered",
+                 "cited_documents": ["d"], "text": "x", "attempts": 1}
+        for payload in ({"name": "a", "created_at": "t"},                           # sans entries
+                        {"name": "a", "created_at": "t", "entries": [{"status": "answered"}]},
+                        {"name": "a", "created_at": "t", "entries": [{**entry, "text": None}]},
+                        {"name": "a", "created_at": "t", "entries": [{**entry, "cited_documents": "abc"}]},
+                        {"name": "a", "created_at": "t", "configuration": [], "entries": [entry]},
+                        "pas du json"):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as tmp:
+                text = payload if isinstance(payload, str) else json.dumps(payload)
+                (Path(tmp) / "a.json").write_text(text, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "a.json"):
+                    JsonSnapshotStore(tmp).load("a")
 
     def test_ignores_unknown_fields_written_by_a_newer_version(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -149,6 +239,16 @@ class JsonSnapshotStoreTest(unittest.TestCase):
 class SystemClockTest(unittest.TestCase):
     def test_is_timezone_aware(self):
         self.assertIsNotNone(SystemClock().now().tzinfo)
+
+
+class PromptRenderingTest(unittest.TestCase):
+    def test_only_the_two_variables_are_replaced_in_one_pass(self):
+        """Un exemple JSON dans le prompt ne plante pas ; un passage qui contient « {question} »
+        n'est pas substitué une seconde fois (même comportement que la version C#)."""
+        from assistant.application.ports import PromptTemplate
+        template = PromptTemplate("n", "v", "s", 'Réponds en JSON {"a": 1}\n{passages}\nQuestion : {question}')
+        rendered = template.render(question="Q ?", passages="[1] parle de {question}")
+        self.assertEqual(rendered, 'Réponds en JSON {"a": 1}\n[1] parle de {question}\nQuestion : Q ?')
 
 
 if __name__ == "__main__":

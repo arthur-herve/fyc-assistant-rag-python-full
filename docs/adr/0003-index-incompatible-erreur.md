@@ -1,6 +1,6 @@
 # ADR 0003 — Un index construit avec un autre modèle est une erreur, pas un avertissement
 
-**Date** : 11/09/2026 · **Statut** : acceptée
+**Date** : 11/09/2026 · **Statut** : acceptée · complétée par l'ADR 0009 (21/09/2026)
 
 ## Contexte
 

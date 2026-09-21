@@ -8,14 +8,19 @@ Format attendu :
     groupes: tous
     ---
     Texte du document…
+
+`groupes` est obligatoire (« tous » pour un document public) : un droit d'accès
+oublié ou mal écrit est une erreur, jamais un document rendu public en silence.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-from assistant.domain.access import PUBLIC_GROUP
 from assistant.domain.model import Document
+
+_GROUP = re.compile(r"[a-z0-9][a-z0-9_-]*")
 
 
 class CorpusFormatError(ValueError):
@@ -42,14 +47,20 @@ def parse_markdown_document(content: str, origin: str = "<texte>") -> Document:
 
     if not meta.get("id"):
         raise CorpusFormatError(f"{origin} : champ 'id' obligatoire")
-    groups = frozenset(
-        g.strip() for g in meta.get("groupes", PUBLIC_GROUP).split(",") if g.strip()
-    )
+    groups = frozenset(g.strip() for g in meta.get("groupes", "").split(",") if g.strip())
+    if not groups:
+        raise CorpusFormatError(f"{origin} : champ 'groupes' obligatoire (« tous » pour un document public)")
+    invalid = sorted(g for g in groups if not _GROUP.fullmatch(g))
+    if invalid:
+        raise CorpusFormatError(
+            f"{origin} : groupe(s) invalide(s) {invalid} : des noms en minuscules séparés par des "
+            "virgules, sans commentaire"
+        )
     return Document(
         id=meta["id"],
         title=meta.get("titre", meta["id"]),
         text="\n".join(lines[end + 1 :]).strip(),
-        allowed_groups=groups or frozenset({PUBLIC_GROUP}),
+        allowed_groups=groups,
     )
 
 
@@ -61,7 +72,7 @@ class MarkdownCorpus:
         if not self._directory.is_dir():
             raise CorpusFormatError(f"Dossier de corpus introuvable : {self._directory}")
         documents = [
-            parse_markdown_document(path.read_text(encoding="utf-8"), str(path))
+            parse_markdown_document(path.read_text(encoding="utf-8-sig"), str(path))
             for path in sorted(self._directory.glob("*.md"))
         ]
         ids = [d.id for d in documents]

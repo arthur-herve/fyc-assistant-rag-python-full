@@ -11,7 +11,7 @@ consignes, la dérive attendue est 0 : il faut un vrai modèle pour voir l'effet
 
 from __future__ import annotations
 
-from _commun import Experiment, drift_summary, parser
+from _commun import ANSWERED, Experiment, drift_summary, parser
 
 
 def main() -> None:
@@ -29,7 +29,7 @@ def main() -> None:
     snapshot_b, _ = exp.record("apres", container_b)
 
     def mean_length(snapshot):
-        answered = [len(e.text) for e in snapshot.entries if e.status == "answered"]
+        answered = [len(e.text) for e in snapshot.entries if e.status == ANSWERED]
         return round(sum(answered) / len(answered)) if answered else None
 
     comparison = exp.compare(snapshot_a, snapshot_b)
@@ -52,7 +52,7 @@ def main() -> None:
     exp.comparison(comparison, "Détail")
     exp.log("## Lecture")
     exp.log("")
-    exp.log("- La version du prompt (déclarée + empreinte du fichier) est dans chaque trace : la dérive est "
+    exp.log("- La version du prompt (déclarée + empreinte du contenu) est dans chaque trace : la dérive est "
             "attribuable à cette seule modification.")
     exp.log("- Ce que le prompt change (forme, longueur, ton) n'est pas ce que le domaine garantit (citations "
             "vérifiées, forme validée, droits filtrés) : c'est ce qui permet de le traiter comme une "

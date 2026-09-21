@@ -21,9 +21,10 @@ jobs:
       # Bibliothèque standard uniquement : rien à installer.
       - name: Tests (sans IA, sans réseau)
         run: python -m unittest discover -s tests -t . -v
-      - name: Kit de l'exercice S2.2 avec sa solution
+      - name: Kit S2.2 — rouge au départ, vert avec la solution
         shell: bash
         run: |
           cd exercices/s2.2-coeur-metier/depart
+          if python -m unittest discover -s tests -t . > /dev/null 2>&1; then echo "le kit de départ ne doit pas être vert" && exit 1; fi
           cp ../solution/*.py coeur/
           python -m unittest discover -s tests -t .

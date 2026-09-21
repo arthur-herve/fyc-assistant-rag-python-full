@@ -40,5 +40,12 @@ class CitationsTest(unittest.TestCase):
         self.assertEqual(check_citations("[2] puis [2,1]", 2).cited, (2, 1))
 
 
+class CitationParityTest(unittest.TestCase):
+    def test_only_latin_digits_count_as_a_citation(self):
+        """« [١] » (chiffre arabe) n'est pas une citation, comme dans la version C#."""
+        self.assertFalse(check_citations("Deux jours [\u0661].", 1).is_valid)
+        self.assertTrue(check_citations("Deux jours [1].", 1).is_valid)
+
+
 if __name__ == "__main__":
     unittest.main()

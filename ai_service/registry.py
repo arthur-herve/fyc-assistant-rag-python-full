@@ -7,6 +7,9 @@ préfixes « query: » / « passage: » exigés par certains modèles d'embeddin
 
 from __future__ import annotations
 
+import dataclasses
+import hashlib
+import re
 import threading
 import tomllib
 from dataclasses import dataclass, field
@@ -14,6 +17,8 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from .backends.base import EmbeddingBackend, GenerationBackend, Vectors
+
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class UnknownModelError(KeyError):
@@ -82,7 +87,13 @@ class EmbeddingModel:
     def embed(self, texts: Sequence[str], input_type: str) -> Vectors:
         prefix = self.query_prefix if input_type == "query" else self.document_prefix
         backend: EmbeddingBackend = self._backend.get()
-        return backend.embed([prefix + t for t in texts])
+        vectors = backend.embed([prefix + t for t in texts])
+        if not (self.query_prefix or self.document_prefix):
+            return vectors
+        # Les préfixes changent les vecteurs : ils entrent dans l'identifiant, sinon un index
+        # construit avec d'autres préfixes passerait pour compatible (ADR 0003).
+        digest = hashlib.sha256(f"{self.query_prefix}\0{self.document_prefix}".encode("utf-8")).hexdigest()[:8]
+        return dataclasses.replace(vectors, model_id=f"{vectors.model_id}+prefixes-{digest}")
 
 
 @dataclass
@@ -94,7 +105,10 @@ class GenerationModel:
 
     def generate(self, system, prompt, temperature, max_tokens, seed) -> tuple[str, str]:
         backend: GenerationBackend = self._backend.get()
-        return backend.generate(system, prompt, temperature, max_tokens, seed)
+        model_id, text = backend.generate(system, prompt, temperature, max_tokens, seed)
+        # Particularité de certains modèles (qwen3…), quel que soit le moteur qui les sert :
+        # le raisonnement entre balises <think> n'est pas la réponse.
+        return model_id, _THINK.sub("", text).strip()
 
 
 class ModelRegistry:

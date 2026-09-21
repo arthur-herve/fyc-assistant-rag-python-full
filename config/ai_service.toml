@@ -1,9 +1,9 @@
 # Configuration du service IA : quels modèles sont servis, et par quel moteur.
 # L'application ne connaît que les ALIAS (clés entre crochets).
 #
-# Modèles Ollama : les télécharger avant usage, par exemple
-#   ollama pull nomic-embed-text
-#   ollama pull qwen3:1.7b
+# Modèles Ollama : les télécharger avant usage ; ceux de la configuration « cours » :
+#   ollama pull bge-m3
+#   ollama pull llama3.2:3b
 # Les noms exacts sont à vérifier sur https://ollama.com/library
 
 [server]

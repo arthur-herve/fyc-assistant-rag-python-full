@@ -33,7 +33,7 @@ cd fyc-assistant-rag-python-full
 python -m unittest discover -s tests -t .
 ```
 
-Attendu : `Ran 133 tests … OK` en moins de 15 secondes. Si c'est vert, votre poste est prêt
+Attendu : `Ran 182 tests … OK` en une vingtaine de secondes au plus. Si c'est vert, votre poste est prêt
 pour les séquences 1 à 2.2.
 
 ## 3. Le mode hors-ligne (2 min)
@@ -106,7 +106,9 @@ comptez un ordre de grandeur de plus (non mesuré : à relever sur vos machines 
 | Symptôme | Cause probable | Remède |
 |---|---|---|
 | `Service IA injoignable (http://127.0.0.1:8100)` | le terminal 1 n'est pas lancé | `python -m ai_service` |
-| `HTTP 502 — … Ollama est-il lancé sur http://127.0.0.1:11434 ?` | Ollama arrêté ou modèle non téléchargé | `ollama serve` / `ollama pull <modèle>` |
+| `HTTP 502 — … Ollama est-il lancé sur http://127.0.0.1:11434 ?` | Ollama arrêté | `ollama serve` |
+| `HTTP 502 — empreinte de … introuvable … (modèles installés : …)` | modèle non téléchargé, ou nom écrit autrement que dans `ollama list` | `ollama pull <modèle>`, ou corriger `model` dans `config/ai_service.toml` |
+| `HTTP 502 — … a changé pendant l'appel` | un `ollama pull` pendant la requête | relancer la commande |
 | `L'index a été construit avec « … » mais le modèle d'embeddings actuel est « … »` | vous avez changé de modèle d'embeddings | c'est voulu (séquence 2.3) : `python -m assistant index …` avec ce modèle |
 | `python : commande introuvable` sous Windows | PATH non mis à jour à l'installation | utiliser `py`, ou réinstaller Python en cochant « Add to PATH » |
 | Réponses très lentes (> 1 min) avec `qwen3:4b` | mode réflexion, budget de jetons | normal sur CPU ; utiliser `llama3.2:3b` hors expériences |

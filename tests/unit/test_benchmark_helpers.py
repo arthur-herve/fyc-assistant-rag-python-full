@@ -1,8 +1,11 @@
 import unittest
+from pathlib import Path
 
 from assistant.interface.benchmark import (
-    EvalQuestion, keyword_coverage, suggest_threshold, validate_threshold,
+    CSV_FIELDS, EvalQuestion, RetrievalScore, keyword_coverage, suggest_threshold, validate_threshold,
 )
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class BenchmarkHelpersTest(unittest.TestCase):
@@ -23,16 +26,25 @@ class BenchmarkHelpersTest(unittest.TestCase):
     def test_no_threshold_without_both_populations(self):
         self.assertEqual(suggest_threshold([0.5], []), (None, None))
 
+    def test_csv_columns_are_those_of_the_reference_results(self):
+        """Mêmes colonnes, dans le même ordre, que les résultats de référence (et que la version C#)."""
+        references = sorted((ROOT / "eval" / "resultats").glob("*/resultats.csv"))
+        self.assertTrue(references)
+        for path in references:
+            with self.subTest(path=path.parent.name):
+                header = path.read_text(encoding="utf-8").splitlines()[0]
+                self.assertEqual(header.split(","), CSV_FIELDS)
+
 
 class ValidateThresholdTest(unittest.TestCase):
     def test_measures_what_a_threshold_keeps_and_refuses_on_unseen_questions(self):
         def q(qid, answerable, expected=()):
             return EvalQuestion(qid, "?", "alice", answerable, tuple(expected), (), ())
         rows = [
-            {"question": q("a1", True, ["d"]), "top1": 0.80, "hit": True, "hit1": True},
-            {"question": q("a2", True, ["d"]), "top1": 0.55, "hit": True, "hit1": False},
-            {"question": q("u1", False), "top1": 0.40, "hit": None, "hit1": None},
-            {"question": q("u2", False), "top1": 0.70, "hit": None, "hit1": None},
+            RetrievalScore(q("a1", True, ["d"]), top1=0.80, hit=True, hit1=True),
+            RetrievalScore(q("a2", True, ["d"]), top1=0.55, hit=True, hit1=False),
+            RetrievalScore(q("u1", False), top1=0.40, hit=None, hit1=None),
+            RetrievalScore(q("u2", False), top1=0.70, hit=None, hit1=None),
         ]
         checked = validate_threshold(rows, 0.60)
         self.assertEqual(checked["questions"], 4)

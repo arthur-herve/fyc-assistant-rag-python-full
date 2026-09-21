@@ -93,12 +93,20 @@ def make_handler(registry: ModelRegistry, quiet: bool = False):
 
         def do_POST(self):
             routes = {"/v1/embeddings": handle_embeddings, "/v1/generate": handle_generate}
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length < 0:   # read(-1) attendrait la fin de la connexion : jamais de réponse
+                    raise ValueError(length)
+                # Corps lu avant toute réponse, même 404 : fermer une connexion sur des octets non
+                # lus peut la réinitialiser (Windows), et le client ne verrait jamais la réponse.
+                body = self.rfile.read(length)
+            except ValueError:
+                return self._error(400, "invalid_request", "Content-Length invalide")
             route = routes.get(self.path)
             if route is None:
                 return self._error(404, "not_found", f"route inconnue : {self.path}")
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                payload = json.loads(body.decode("utf-8") or "{}")
                 if not isinstance(payload, dict):
                     raise RequestError("un objet JSON est attendu")
                 self._send(200, route(registry, payload))
@@ -107,13 +115,23 @@ def make_handler(registry: ModelRegistry, quiet: bool = False):
             except UnknownModelError as error:
                 self._error(404, "unknown_model", str(error.args[0]))
             except BackendError as error:
-                self._error(502, "backend_error", str(error))
+                self._error(502, "backend_error", str(error), retryable=error.retryable)
             except Exception as error:  # noqa: BLE001 — on renvoie toujours du JSON
                 traceback.print_exc()
                 self._error(500, "internal_error", f"{type(error).__name__}: {error}")
 
-        def _error(self, status: int, code: str, message: str) -> None:
-            self._send(status, {"error": {"code": code, "message": message}})
+        def _error(self, status: int, code: str, message: str, **extra: Any) -> None:
+            self._send(status, {"error": {"code": code, "message": message, **extra}})
+
+        def send_error(self, code, message=None, explain=None):
+            """Ce que la bibliothèque standard refuse elle-même (méthode inconnue, requête
+            mal formée) répond aussi en JSON. Une méthode inconnue est un 405."""
+            self.close_connection = True
+            if code == 501:
+                self._error(405, "method_not_allowed", f"méthode non prise en charge : {self.command}")
+            else:
+                self._error(code, "invalid_request" if 400 <= code < 500 else "internal_error",
+                            message or self.responses.get(code, ("",))[0])
 
         def _send(self, status: int, body: dict[str, Any]) -> None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -121,7 +139,8 @@ def make_handler(registry: ModelRegistry, quiet: bool = False):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            self.wfile.write(data)
+            if self.command != "HEAD":   # HEAD : les en-têtes seuls
+                self.wfile.write(data)
 
         def log_message(self, fmt, *args):
             if not quiet:

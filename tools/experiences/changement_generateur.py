@@ -9,7 +9,7 @@ réindexé. Et sa nuance : les réponses, la latence et les rejets changent.
 
 from __future__ import annotations
 
-from _commun import Experiment, drift_summary, parser
+from _commun import UNSOURCED, Experiment, drift_summary, parser
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
     same_index = snapshot_a.configuration.get("index_id") == snapshot_b.configuration.get("index_id")
 
     def rejected(snapshot):
-        return sum(1 for e in snapshot.entries if e.status == "unsourced")
+        return sum(1 for e in snapshot.entries if e.status == UNSOURCED)
 
     comparison = exp.compare(snapshot_a, snapshot_b)
     exp.log(f"Une seule chose change : le modèle de génération, `{first}` → `{args.other}`. "

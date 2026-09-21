@@ -3,6 +3,7 @@ import unittest
 from assistant.application.errors import EmptyCorpusError, InconsistentEmbeddingsError
 from assistant.application.index_corpus import IndexCorpus, corpus_fingerprint
 from assistant.application.ports import EmbeddingBatch
+from assistant.domain.model import Document
 from tests.fakes import (
     FakeIndex, FixedClock, KeywordEmbedder, ListSource, WholeDocumentSplitter, make_document,
 )
@@ -63,6 +64,15 @@ class IndexCorpusTest(unittest.TestCase):
         public = [make_document("a", "texte")]
         restricted = [make_document("a", "texte", groups=["rh"])]
         self.assertNotEqual(corpus_fingerprint(public), corpus_fingerprint(restricted))
+
+    def test_fingerprint_separates_the_fields_and_matches_the_csharp_version(self):
+        tous = frozenset({"tous"})
+        self.assertNotEqual(corpus_fingerprint([Document("a", "t", "bc", tous)]),
+                            corpus_fingerprint([Document("a", "tb", "c", tous)]))
+        documents = [Document("b", "Congés", "Vingt-cinq jours.", tous),
+                     Document("a", "Grille", "Salaire senior.", frozenset({"rh", "direction"}))]
+        # Même valeur attendue dans UseCaseTests.cs : les deux versions calculent la même empreinte.
+        self.assertEqual(corpus_fingerprint(documents), "ec3df17f9b790082ea28ee7ca48f688a23e23a893f3bce5ce89c61e9d9798db0")
 
 
 if __name__ == "__main__":

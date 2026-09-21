@@ -37,6 +37,13 @@ class IndexModelMismatchError(ApplicationError):
         )
 
 
+class IndexReplacedError(ApplicationError):
+    """L'index a été reconstruit (par un autre processus) pendant la recherche, deux fois de suite."""
+
+    def __init__(self) -> None:
+        super().__init__("L'index a été reconstruit pendant la recherche. Reposez la question.")
+
+
 class InconsistentEmbeddingsError(ApplicationError):
     def __init__(self, detail: str) -> None:
         super().__init__(f"Embeddings incohérents pendant l'indexation : {detail}")
@@ -66,3 +73,7 @@ class ModelOutputRejectedError(ApplicationError):
         self.text = text
         self.problems = problems
         super().__init__("sortie du modèle rejetée : " + " ; ".join(problems))
+
+
+class SnapshotNotFoundError(ApplicationError):
+    """Aucun instantané de ce nom : fait partie du contrat du port `SnapshotStore`."""

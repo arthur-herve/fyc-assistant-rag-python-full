@@ -28,14 +28,17 @@ from assistant.domain.model import (
     User,
 )
 
-from .errors import IndexModelMismatchError, IndexNotBuiltError, ModelOutputRejectedError
+from .errors import ModelOutputRejectedError
 from .ports import Embedder, GenerationRequest, Generator, PromptRepository, VectorIndex
+from .search_passages import SearchPassages
 
 
 @dataclass(frozen=True)
 class AskSettings:
     top_k: int = 4
-    # Attention : ce seuil n'a de sens que pour UN modèle d'embeddings donné.
+    # Attention : ce seuil n'a de sens que pour UN modèle d'embeddings donné. La composition
+    # fixe toujours celui que la configuration donne pour l'alias utilisé (ou `default`, avec
+    # un avertissement ; ADR 0004) : 0,35 ne sert qu'aux tests.
     min_score: float = 0.35
     max_attempts: int = 2
     temperature: float = 0.2
@@ -45,6 +48,9 @@ class AskSettings:
 
 
 def format_passages(passages: Sequence[Passage]) -> str:
+    """Numérote les passages pour les citations. Quand le découpage inclut déjà le titre dans
+    le morceau, le titre apparaît deux fois : redondance assumée (quelques mots), pour que les
+    prompts restent ceux des mesures de référence (eval/resultats)."""
     blocks = []
     for number, passage in enumerate(passages, start=1):
         blocks.append(
@@ -63,34 +69,21 @@ class AskQuestion:
         settings: AskSettings = AskSettings(),
         access_policy: AccessPolicy | None = None,
     ) -> None:
-        self._embedder = embedder
-        self._index = index
+        self._search = SearchPassages(embedder, index, access_policy)
         self._generator = generator
         self._prompts = prompts
         self._settings = settings
-        self._access = access_policy or AccessPolicy()
 
     def execute(self, user: User, question: str) -> Answer:
         question = question.strip()
         if not question:
             raise EmptyQuestionError()
 
-        manifest = self._index.manifest()
-        if manifest is None:
-            raise IndexNotBuiltError()
-
-        query = self._embedder.embed_query(question)
-        if (query.model, query.dimension) != (manifest.embedding_model, manifest.dimension):
-            raise IndexModelMismatchError(
-                manifest.embedding_model, manifest.dimension, query.model, query.dimension
-            )
-
+        # Recherche filtrée par les droits (cas d'usage SearchPassages) : sans index,
+        # ou avec un index construit par un autre modèle, on s'arrête ici.
         settings = self._settings
-        passages = self._index.search(
-            query.vectors[0],
-            settings.top_k,
-            predicate=lambda chunk: self._access.can_read(user, chunk),
-        )
+        retrieval = self._search.execute(user, question, settings.top_k)
+        manifest, passages = retrieval.manifest, retrieval.passages
         relevant = [p for p in passages if p.score >= settings.min_score]
         retrieved = tuple((p.chunk.id, round(p.score, 4)) for p in passages)
 

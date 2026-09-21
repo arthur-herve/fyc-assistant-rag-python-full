@@ -13,13 +13,16 @@ from .ports import Clock, DocumentSource, Embedder, IndexManifest, TextSplitter,
 
 
 def corpus_fingerprint(documents: Sequence[Document]) -> str:
-    """Empreinte du corpus : change dès qu'un texte ou un droit d'accès change."""
+    """Empreinte du corpus : change dès qu'un texte ou un droit d'accès change.
+
+    Chaque champ est précédé de sa longueur en octets : sans séparateur, « a » + « bc » et
+    « ab » + « c » donneraient la même empreinte. Même formule dans la version C#."""
     digest = hashlib.sha256()
     for doc in sorted(documents, key=lambda d: d.id):
-        digest.update(doc.id.encode("utf-8"))
-        digest.update(doc.title.encode("utf-8"))
-        digest.update(doc.text.encode("utf-8"))
-        digest.update(",".join(sorted(doc.allowed_groups)).encode("utf-8"))
+        for field in (doc.id, doc.title, doc.text, ",".join(sorted(doc.allowed_groups))):
+            data = field.encode("utf-8")
+            digest.update(f"{len(data)}:".encode("ascii"))
+            digest.update(data)
     return digest.hexdigest()
 
 

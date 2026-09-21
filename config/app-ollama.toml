@@ -52,7 +52,7 @@ mxbai = 0.55
 [decorators]
 validate_output = true     # rejette une sortie vide, trop longue, en anglais ou qui raisonne
 max_output_chars = 1500
-cache_embeddings = true    # mémoire du processus ; un cache persistant devrait porter le modèle
+cache_embeddings = true    # questions seulement, pour l'index courant (ADR 0009)
 log = true
 retries = 1                # nouvelles tentatives quand le service IA est injoignable
 

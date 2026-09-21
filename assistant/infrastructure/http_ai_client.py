@@ -31,17 +31,26 @@ def urllib_transport(timeout: float) -> Transport:
         )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                body = response.read()
         except urllib.error.HTTPError as error:
-            detail = error.read().decode("utf-8", errors="replace")
+            with error:
+                detail = error.read().decode("utf-8", errors="replace")
+            retryable = True
             try:
-                detail = json.loads(detail)["error"]["message"]
+                problem = json.loads(detail)["error"]
+                detail, retryable = problem["message"], problem.get("retryable", True) is not False
             except (ValueError, KeyError, TypeError):
                 pass
+            # 5xx : passager, sauf si le service dit que réessayer ne changera rien (modèle absent…).
             raise AIServiceError(f"Service IA : HTTP {error.code} — {detail}",
-                                 transient=error.code >= 500) from error
+                                 transient=error.code >= 500 and retryable) from error
         except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
             raise AIServiceError(f"Service IA injoignable ({url}) : {error}") from error
+        try:
+            return json.loads(body.decode("utf-8"))
+        except ValueError as error:   # JSON invalide ou octets non UTF-8 : ce n'est pas le contrat
+            raise AIServiceError(f"Réponse du service IA illisible ({url}) : {error}",
+                                 transient=False) from error
 
     return post
 
@@ -71,11 +80,13 @@ class HttpEmbedder:
             self._url, {"model": self._model, "input_type": input_type, "inputs": texts}
         )
         _require(payload, "model", "dimension", "vectors")
-        return EmbeddingBatch(
-            model=payload["model"],
-            dimension=int(payload["dimension"]),
-            vectors=payload["vectors"],
-        )
+        dimension, vectors = int(payload["dimension"]), payload["vectors"]
+        if len(vectors) != len(texts) or any(len(v) != dimension for v in vectors):
+            raise AIServiceError(
+                f"Réponse du service IA incohérente : {len(texts)} vecteurs de {dimension} dimensions "
+                f"attendus, reçu {len(vectors)} de {sorted({len(v) for v in vectors})} dimensions",
+                transient=False)
+        return EmbeddingBatch(model=payload["model"], dimension=dimension, vectors=vectors)
 
 
 class HttpGenerator:

@@ -10,8 +10,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Accepte [1], [2, 3] et [2,3]
-_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# Accepte [1], [2, 3] et [2,3] ; chiffres latins seulement (« [١] » n'est pas une citation,
+# comme dans la version C#).
+_CITATION = re.compile(r"\[([0-9]+(?:\s*,\s*[0-9]+)*)\]")
 
 
 @dataclass(frozen=True)

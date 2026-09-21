@@ -10,11 +10,11 @@ que Git versionne naturellement.
 | Artefact | Où il vit | Qui le change | Ce qui en dépend | Comment on le trace |
 |---|---|---|---|---|
 | **Code** | `assistant/`, `ai_service/` | les développeurs | tout | Git |
-| **Corpus** | `corpus/<nom>/*.md` | les métiers (RH, juridique…), la DILA pour Service-Public | l'index | `corpus_fingerprint` dans le manifeste de l'index (empreinte des textes **et** des droits d'accès) |
+| **Corpus** | `corpus/<nom>/*.md` | les métiers (RH, juridique…), la DILA pour Service-Public | l'index | `corpus_fingerprint` dans le manifeste de l'index (empreinte des textes **et** des droits d'accès ; formule changée le 21/09/2026 — chaque champ précédé de sa longueur — : un index construit avant est vu « corpus modifié » par `status` : relancer `index`) |
 | **Découpage** | `[splitter]` de la configuration | les développeurs | l'index, les seuils | `splitter` dans le manifeste ; `index_id` change avec lui |
 | **Index** | `data/index*.json` | personne : il est **dérivé** | les réponses | `IndexManifest` : `index_id`, modèle concret, dimension, empreinte du corpus, découpage, date |
 | **Prompts** | `assistant/prompts/*.toml` | développeurs ou métiers | les réponses (pas l'index) | `version` déclarée + empreinte du contenu (version, system, user — indépendante du format de fichier, identique dans la version C#), inscrites dans chaque `AnswerTrace` |
-| **Modèle d'embeddings** | derrière un alias du service IA (`config/ai_service.toml`) | l'équipe qui exploite le service IA | l'index, les seuils de pertinence | identifiant concret renvoyé par le service (`ollama:bge-m3@790764…`) et comparé au manifeste **à chaque question** |
+| **Modèle d'embeddings** | derrière un alias du service IA (`config/ai_service.toml`) | l'équipe qui exploite le service IA | l'index, les seuils de pertinence | identifiant concret renvoyé par le service (`ollama:bge-m3@790764…`) et comparé au manifeste **à chaque question** (voir le cache plus bas) |
 | **Modèle de génération** | derrière un alias du service IA | l'équipe IA | les réponses (pas l'index) | identifiant concret dans chaque `AnswerTrace` |
 
 Deux artefacts ne sont pas des fichiers mais des **réglages** qui dépendent des précédents :
@@ -47,7 +47,7 @@ le verdict « le générateur est un détail », et sa limite : il change quand 
 
 | Changement | Détecté par | Moment | Réaction |
 |---|---|---|---|
-| Modèle d'embeddings servi ≠ modèle de l'index | `AskQuestion` (`IndexModelMismatchError`) | à chaque question | erreur : réindexer |
+| Modèle d'embeddings servi ≠ modèle de l'index | `AskQuestion` (`IndexModelMismatchError`) | à chaque question qui atteint le service (voir le cache plus bas) | erreur : réindexer |
 | Corpus modifié depuis l'indexation | `python -m assistant status` (`CheckStatus`) | à la demande | verdict « à refaire » |
 | Découpage modifié | `status` | à la demande | verdict « à refaire » |
 | Prompt modifié | version + empreinte dans chaque trace ; `snapshot compare` | à chaque réponse ; à la demande | on sait *quel* prompt a produit *quelle* réponse |
@@ -58,6 +58,12 @@ le verdict « le générateur est un détail », et sa limite : il change quand 
 modèle entre deux appels. Il sert avant une démonstration, un déploiement ou un banc d'essai.
 Il interroge le service IA **sans passer par le cache d'embeddings** : un cache est lui-même un
 artefact lié au modèle, il masquerait un changement de modèle servi.
+
+Le cache d'embeddings dérive de l'index (ADR 0009) : il ne sert que l'index courant et se vide
+quand l'index change, ne garde que des vecteurs du modèle et de la dimension de cet index, et ne
+met jamais les documents en cache, pour qu'une réindexation reflète le modèle servi *maintenant*.
+Une question déjà posée peut donc venir du cache, avec des vecteurs du modèle de l'index (réponse
+cohérente) : c'est une question nouvelle, ou `status`, qui révèle un changement de modèle servi.
 
 ## La réindexation, équivalent RAG du réentraînement
 

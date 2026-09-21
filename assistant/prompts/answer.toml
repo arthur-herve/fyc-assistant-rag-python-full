@@ -1,5 +1,5 @@
 # Prompt de réponse. Toute modification doit incrémenter `version` :
-# la version et une empreinte du fichier sont inscrites dans chaque trace.
+# la version et une empreinte du contenu (version, system, user) sont inscrites dans chaque trace.
 version = "v1"
 
 system = """

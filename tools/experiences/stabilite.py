@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from _commun import Experiment, drift_summary, parser
+from _commun import STATUS_CHANGED, Experiment, drift_summary, parser
 
 
 def main() -> None:
@@ -35,17 +35,18 @@ def main() -> None:
     exp.log("")
     exp.log("## Chaque passage comparé au premier")
     exp.log("")
-    rows = {}
-    for i, snapshot in enumerate(snapshots[1:], start=2):
-        comparison = exp.compare(snapshots[0], snapshot)
-        rows[f"passage 1 → {i}"] = drift_summary(comparison)
-    exp.table(rows)
-    drifts = [v["taux de dérive"] for v in rows.values() if v["taux de dérive"] is not None]
+    comparisons = {f"passage 1 → {i}": exp.compare(snapshots[0], snapshot)
+                   for i, snapshot in enumerate(snapshots[1:], start=2)}
+    exp.table({label: drift_summary(comparison) for label, comparison in comparisons.items()})
+    drifts = [c.drift_rate for c in comparisons.values() if c.drift_rate is not None]
     mean_drift = round(sum(drifts) / len(drifts), 3) if drifts else None
-    statuses = sum(v["changements de statut"] for v in rows.values())
+    statuses = sum(c.count(STATUS_CHANGED) for c in comparisons.values())
     exp.log(f"**Dérive moyenne à configuration constante : {mean_drift if mean_drift is not None else '—'}** "
-            f"({statuses} changement(s) de statut sur {len(rows)} comparaison(s)).")
+            f"({statuses} changement(s) de statut sur {len(comparisons)} comparaison(s)).")
     exp.log("")
+    exp.log("## Indicateurs par passage")
+    exp.log("")
+    exp.table({f"passage {i}": exp.stats(snapshot) for i, snapshot in enumerate(snapshots, start=1)})
     exp.log("## Statuts par question")
     exp.log("")
     exp.log("| Question | " + " | ".join(f"passage {i}" for i in range(1, args.runs + 1)) + " |")
@@ -63,8 +64,7 @@ def main() -> None:
     exp.log("- C'est la mesure de base de la séquence 3.1 : un test par assertion exacte sur ces réponses "
             "échouerait au hasard. On teste donc une *proportion* (taux de réponses sourcées, de refus justes) "
             "avec une tolérance, et on documente la probabilité de faux échec.")
-    exp.log("- Les reformulations sont attendues ; les changements de statut (⚠) sont ce qu'un test "
-            "statistique doit borner.")
+    exp.log("- Le texte change presque toujours d'un passage à l'autre, et un « texte modifié » peut inverser la réponse (Oui devenu Non) : il se relit, la couverture des mots-clés le mesure grossièrement. Les changements de statut (⚠) existent aussi à configuration constante : un test statistique doit les borner avec une tolérance, pas exiger zéro.")
     exp.log("- Une graine réduit la variabilité pour un même modèle et un même moteur ; elle ne garantit rien "
             "d'un modèle à l'autre, ni d'une version d'Ollama à l'autre.")
     exp.write()

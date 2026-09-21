@@ -1,6 +1,6 @@
 # ADR 0008 — Les garde-fous sont des décorateurs de ports ; la forme de la sortie est une règle métier
 
-**Date** : 11/09/2026 · **Statut** : acceptée
+**Date** : 11/09/2026 · **Statut** : acceptée · complétée par l'ADR 0009 (21/09/2026)
 
 ## Contexte
 

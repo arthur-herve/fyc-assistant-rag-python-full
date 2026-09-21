@@ -14,13 +14,18 @@ lu par `assistant/infrastructure/markdown_corpus.py` :
 ---
 id: identifiant-unique
 titre: Titre du document
-groupes: tous            # ou : rh, direction, … (séparés par des virgules)
+groupes: tous
 ---
 Texte du document…
 ```
 
-Un document sans `groupes` est lisible par tous. Les autres clés de l'en-tête (source, date,
-thème…) sont conservées à titre documentaire et ignorées par l'application.
+`groupes` est obligatoire : `tous` pour un document public, sinon des groupes en minuscules
+séparés par des virgules (`rh, direction`), sans commentaire sur la ligne. Une ligne oubliée,
+vide ou mal formée (majuscule, espace, commentaire) arrête le chargement du corpus : elle ne rend
+jamais un document public. Un groupe bien formé mais mal orthographié (`rhh`) passe, et rend le
+document illisible par tout le monde : sûr, mais silencieux, à vérifier avec `ask --user`. Les autres
+clés de l'en-tête (source, date, thème…) sont conservées à titre documentaire et ignorées par
+l'application.
 
 > Un dossier de corpus ne contient que des documents : tout fichier `.md` doit porter l'en-tête, c'est pourquoi l'attribution ci-dessous n'est pas dans `service-public/`.
 

@@ -21,8 +21,15 @@ class FilePromptRepository:
         path = self._directory / f"{name}.toml"
         # Normalise les fins de ligne : l'empreinte est la même sous Windows et Linux.
         text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
-        data = tomllib.loads(text)
-        version, system, user = data["version"], data["system"].strip(), data["user"].strip()
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError as error:
+            raise ValueError(f"prompt illisible ({path}) : {error}") from error
+        values = [data.get(key) for key in ("version", "system", "user")]
+        if not all(isinstance(value, str) for value in values):
+            # Les prompts sont édités à la main (docs/artefacts.md) : dire quoi corriger, et où.
+            raise ValueError(f"prompt illisible ({path}) : il faut trois textes, version, system et user")
+        version, system, user = values[0], values[1].strip(), values[2].strip()
         return PromptTemplate(
             name=name,
             version=f"{version}+{prompt_fingerprint(version, system, user)}",

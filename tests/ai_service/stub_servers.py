@@ -37,7 +37,10 @@ class StubServer:
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        # Arrêt vérifié toutes les 50 ms (0,5 s par défaut) : chaque test qui monte un faux serveur
+        # attendrait sinon jusqu'à une demi-seconde à la sortie du `with`.
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.05},
+                                       daemon=True)
 
     def __enter__(self):
         self.thread.start()
@@ -48,26 +51,31 @@ class StubServer:
         self.server.server_close()
 
 
-def ollama_routes(thinking: bool = False):
+OLLAMA_MODELS = [   # comme /api/tags : `name` et `model` valent le nom court canonique
+    {"name": "nomic-embed-text:latest", "model": "nomic-embed-text:latest", "digest": "0a109f422b47e3a3"},
+    {"name": "qwen3:1.7b", "model": "qwen3:1.7b", "digest": "8f68893c685ceaa1"},
+    {"name": "qwen3:4b", "model": "qwen3:4b", "digest": "359d7dd4bcda2b1e"},
+]
+
+
+def ollama_routes(thinking: bool = False, tags=lambda: OLLAMA_MODELS):
     """`thinking=True` imite un modèle à réflexion : Ollama renvoie alors le
-    raisonnement dans `message.thinking`, à côté de `message.content`."""
+    raisonnement dans `message.thinking`, à côté de `message.content`.
+    `tags` renvoie les modèles installés à chaque appel de /api/tags : un test
+    peut ainsi imiter un `ollama pull` qui remplace des poids."""
     message = {"role": "assistant", "content": "<think>je réfléchis</think>\nDeux jours [1]."}
     if thinking:
         message = {"role": "assistant", "thinking": "je réfléchis longuement",
                    "content": "Deux jours [1]."}
     return {
-        ("GET", "/api/tags"): lambda body: (200, {"models": [
-            {"name": "nomic-embed-text:latest", "digest": "0a109f422b47e3a3"},
-            {"name": "qwen3:1.7b", "digest": "8f68893c685ceaa1"},
-        ]}),
+        ("GET", "/api/tags"): lambda body: (200, {"models": tags()}),
         ("POST", "/api/embed"): lambda body: (200, {
             "model": body["model"],
             "embeddings": [[0.1, 0.2, 0.3] for _ in body["input"]],
         }),
         ("POST", "/api/chat"): lambda body: (200, {
             "model": body["model"],
-            "message": {"role": "assistant",
-                        "content": "<think>je réfléchis</think>\nDeux jours [1]."},
+            "message": message,
             "done": True,
         }),
     }

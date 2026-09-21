@@ -5,10 +5,11 @@ complète `citations.py` (la forme des citations) par le fond : une réponse
 vide, trop longue, dans la mauvaise langue ou qui déverse un raisonnement
 n'est pas une réponse, même si elle contient « [1] ».
 
-Ces règles ne connaissent aucun modèle en particulier : l'application refuse
-toute forme de raisonnement déversé, quel qu'en soit le marqueur ; ce qui est
-propre à un modèle (balises, budget de réflexion) est neutralisé côté service
-IA. Leçon du 11/09/2026 : un raisonnement en anglais contenant « [1] » avait
+Ces règles ne nomment aucun modèle, mais leurs marqueurs de raisonnement
+viennent des modèles rencontrés (qwen3…) : c'est une connaissance du modèle,
+assumée, datée et testée sur les cas réels (ADR 0008), à revoir quand on en
+change. Ce qui se règle ou se retire mécaniquement est neutralisé côté service IA :
+balises <think> (retirées quel que soit le moteur), budget de réflexion (Ollama). Leçon du 11/09/2026 : un raisonnement en anglais contenant « [1] » avait
 passé la vérification des citations.
 """
 

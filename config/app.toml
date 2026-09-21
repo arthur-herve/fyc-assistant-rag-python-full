@@ -1,6 +1,7 @@
 # Configuration de l'application (serveur applicatif).
-# Elle ne contient AUCUN détail de modèle : seulement l'adresse du service IA
-# et les alias des modèles à utiliser.
+# Elle ne contient aucun détail d'implémentation des modèles : l'adresse du service
+# IA et des alias. Seule exception, voulue : un seuil de pertinence par alias
+# d'embeddings, qui dépend du modèle (ADR 0004).
 
 [ai_service]
 base_url = "http://127.0.0.1:8100"
@@ -48,7 +49,7 @@ st-e5-small = 0.82
 [decorators]
 validate_output = true     # rejette une sortie vide, trop longue, en anglais ou qui raisonne
 max_output_chars = 1500
-cache_embeddings = true    # mémoire du processus ; un cache persistant devrait porter le modèle
+cache_embeddings = true    # questions seulement, pour l'index courant (ADR 0009)
 log = true
 retries = 1                # nouvelles tentatives quand le service IA est injoignable
 

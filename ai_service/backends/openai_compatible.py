@@ -42,9 +42,9 @@ class OpenAICompatibleEmbeddingBackend(_OpenAICompatible):
             items = sorted(data["data"], key=lambda item: item["index"])
             vectors = [item["embedding"] for item in items]
         except (KeyError, TypeError):
-            raise BackendError(f"Réponse embeddings inattendue : {str(data)[:300]}") from None
+            raise BackendError(f"Réponse embeddings inattendue : {str(data)[:300]}", retryable=False) from None
         if len(vectors) != len(texts):
-            raise BackendError(f"{len(texts)} embeddings attendus, {len(vectors)} reçus")
+            raise BackendError(f"{len(texts)} embeddings attendus, {len(vectors)} reçus", retryable=False)
         return Vectors(model_id=self.model_id, dimension=len(vectors[0]), vectors=vectors)
 
 
@@ -71,4 +71,4 @@ class OpenAICompatibleGenerationBackend(_OpenAICompatible):
         try:
             return self.model_id, data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError, AttributeError):
-            raise BackendError(f"Réponse chat inattendue : {str(data)[:300]}") from None
+            raise BackendError(f"Réponse chat inattendue : {str(data)[:300]}", retryable=False) from None

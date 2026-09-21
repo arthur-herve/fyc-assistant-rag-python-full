@@ -79,7 +79,7 @@ def status_to_text(report: StatusReport) -> str:
     lines.append(f"Corpus     : {report.corpus_documents} documents · empreinte {report.corpus_fingerprint[:12]}…")
     lines.append(f"Découpage  : {report.splitter}")
     if report.ai_service_error:
-        lines.append(f"Service IA : injoignable ({report.ai_service_error})")
+        lines.append(f"Service IA : en erreur ({report.ai_service_error})")
     else:
         lines.append(f"Service IA : sert {report.embedding_model} ({report.embedding_dimension} dim.)")
     lines.append(f"Prompt     : {report.prompt_version}")
@@ -114,7 +114,7 @@ def comparison_to_text(comparison: SnapshotComparison, show_changes: bool = True
     readings = {
         STATUS_CHANGED: "changement de comportement : refus devenu réponse, ou l'inverse",
         SOURCES_CHANGED: "même décision, autres documents cités",
-        TEXT_CHANGED: "mêmes sources, même décision : reformulation, la dérive la plus bénigne",
+        TEXT_CHANGED: "mêmes sources, même statut, texte différent : à relire, le sens a pu changer (Oui devenu Non…)",
         IDENTICAL: "rien n'a bougé",
         MISSING: "question présente d'un seul côté",
     }

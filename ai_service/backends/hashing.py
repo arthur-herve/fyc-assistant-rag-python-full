@@ -18,7 +18,7 @@ from .base import Vectors
 _STOPWORDS = frozenset(
     "au aux avec ce ces cette dans de des du elle en est et il ils je la le les leur "
     "lui ma mais me mes mon ne nos notre nous on ou par pas pour qu que qui sa se ses "
-    "son sont sur ta te tes ton tu un une vos votre vous est-ce quel quelle quels "
+    "son sont sur ta te tes ton tu un une vos votre vous quel quelle quels "
     "quelles combien comment faut peut dois doit".split()
 )
 

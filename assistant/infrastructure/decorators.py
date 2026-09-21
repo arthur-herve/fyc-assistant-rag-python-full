@@ -8,12 +8,13 @@ cache, journal, nouvelles tentatives. Les cas d'usage n'en savent rien ;
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Callable, Sequence
 
 from assistant.application.errors import AIServiceError
 from assistant.application.ports import (
-    Embedder, EmbeddingBatch, Generation, GenerationRequest, Generator,
+    Embedder, EmbeddingBatch, Generation, GenerationRequest, Generator, IndexManifest,
 )
 
 log = logging.getLogger("assistant")
@@ -22,44 +23,58 @@ log = logging.getLogger("assistant")
 # --- Cache -------------------------------------------------------------------
 
 class CachedEmbedder:
-    """Mémorise les vecteurs déjà calculés dans le processus.
+    """Mémorise, dans le processus, les vecteurs des questions déjà posées.
 
-    Attention, leçon de la séquence 4.2 : un cache d'embeddings est lui-même
-    un artefact lié au modèle. Il est ici en mémoire, donc perdu à l'arrêt ;
-    un cache persistant devrait porter l'identifiant du modèle dans sa clé.
+    Leçon de la séquence 4.2 : un cache d'embeddings est un artefact dérivé de
+    l'index, comme l'index est dérivé du modèle (ADR 0009). D'où trois règles :
+
+    - il ne sert que l'index courant (`current_index`) : un nouvel index le vide,
+      même si le nom du modèle n'a pas changé (préfixes modifiés, moteur qui ne
+      fournit pas d'empreinte des poids…) ;
+    - il ne garde que des vecteurs du modèle et de la dimension de cet index :
+      sinon, une question posée pendant que le service servait un autre modèle
+      resterait en erreur même après le retour du service au bon modèle ;
+    - les documents ne sont jamais mis en cache : une (ré)indexation doit refléter
+      le modèle servi *maintenant*, pas celui d'une indexation précédente.
+
+    Garanti : le cache ne mélange jamais deux index. Pas garanti : une question déjà
+    posée ne repart pas au service, donc c'est une question nouvelle (ou `status`, qui
+    n'utilise pas ce cache) qui révèle un changement de modèle servi (ADR 0009).
     """
 
-    def __init__(self, inner: Embedder, max_entries: int = 10_000) -> None:
+    def __init__(self, inner: Embedder, current_index: Callable[[], IndexManifest | None],
+                 max_entries: int = 10_000) -> None:
         self._inner = inner
+        self._current_index = current_index
+        self._index: IndexManifest | None = None   # l'index que les entrées servent
         self._queries: dict[str, EmbeddingBatch] = {}
-        self._documents: dict[tuple[str, ...], EmbeddingBatch] = {}
         self._max_entries = max_entries
+        self._lock = threading.Lock()   # le serveur HTTP de l'application est multi-fil
         self.hits = 0
         self.misses = 0
 
-    def _remember(self, store: dict, key, batch: EmbeddingBatch) -> None:
-        if len(store) >= self._max_entries:
-            store.pop(next(iter(store)))  # le plus ancien sort
-        store[key] = batch
-
     def embed_query(self, text: str) -> EmbeddingBatch:
-        if text in self._queries:
-            self.hits += 1
-            return self._queries[text]
-        self.misses += 1
+        index = self._current_index()
+        with self._lock:
+            if index is not self._index:   # un nouvel index : un nouvel objet manifeste
+                self._index = index
+                self._queries.clear()
+            cached = self._queries.get(text)
+            if cached is not None:
+                self.hits += 1
+                return cached
+            self.misses += 1
         batch = self._inner.embed_query(text)
-        self._remember(self._queries, text, batch)
+        if index is not None and (batch.model, batch.dimension) == (index.embedding_model, index.dimension):
+            with self._lock:
+                if index is self._index and text not in self._queries:   # index inchangé pendant l'appel
+                    if len(self._queries) >= self._max_entries:
+                        self._queries.pop(next(iter(self._queries)))  # le plus ancien sort
+                    self._queries[text] = batch
         return batch
 
     def embed_documents(self, texts: Sequence[str]) -> EmbeddingBatch:
-        key = tuple(texts)
-        if key in self._documents:
-            self.hits += 1
-            return self._documents[key]
-        self.misses += 1
-        batch = self._inner.embed_documents(texts)
-        self._remember(self._documents, key, batch)
-        return batch
+        return self._inner.embed_documents(texts)
 
 
 # --- Journal -----------------------------------------------------------------

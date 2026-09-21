@@ -1,3 +1,4 @@
+import importlib.util
 import math
 import unittest
 
@@ -8,6 +9,7 @@ from ai_service.backends.ollama import OllamaEmbeddingBackend, OllamaGenerationB
 from ai_service.backends.openai_compatible import (
     OpenAICompatibleEmbeddingBackend, OpenAICompatibleGenerationBackend,
 )
+from ai_service.backends.sentence_transformers_backend import SentenceTransformersEmbeddingBackend
 from ai_service.registry import ConfigError, ModelRegistry, UnknownModelError
 from tests.ai_service.stub_servers import StubServer, ollama_routes, openai_routes
 
@@ -62,12 +64,12 @@ class OllamaBackendTest(unittest.TestCase):
         self.assertEqual(vectors.model_id, "ollama:nomic-embed-text@0a109f422b47")
         self.assertEqual(vectors.dimension, 3)
 
-    def test_chat_request_format_and_think_tags_removed(self):
+    def test_chat_request_format(self):
         with StubServer(ollama_routes()) as stub:
             model_id, text = OllamaGenerationBackend("qwen3:1.7b", base_url=stub.url, think=False).generate(
                 "système", "prompt", 0.2, 150, 42)
             _, _, body = next(r for r in stub.requests if r[1] == "/api/chat")
-        self.assertEqual(text, "Deux jours [1].")
+        self.assertEqual(text, "<think>je réfléchis</think>\nDeux jours [1].")   # retiré par le registre
         self.assertEqual(model_id, "ollama:qwen3:1.7b@8f68893c685c")
         self.assertEqual(body["messages"][0], {"role": "system", "content": "système"})
         self.assertEqual(body["options"], {"temperature": 0.2, "num_predict": 150, "seed": 42})
@@ -89,8 +91,87 @@ class OllamaBackendTest(unittest.TestCase):
         self.assertEqual(backend.thinking_tokens, 0)
 
     def test_unreachable_ollama_is_a_backend_error(self):
-        with self.assertRaises(BackendError):
+        with self.assertRaises(BackendError) as caught:
             OllamaEmbeddingBackend("x", base_url="http://127.0.0.1:1", timeout=2).embed(["a"])
+        self.assertTrue(caught.exception.retryable)   # Ollama peut revenir : réessayer a un sens
+
+    def test_a_refusal_by_the_engine_is_not_worth_retrying(self):
+        routes = ollama_routes(tags=lambda: [{"name": "bge-m3:latest", "digest": "0123456789ab0000"}])
+        routes[("POST", "/api/embed")] = lambda body: (404, {"error": "model not found"})
+        with StubServer(routes) as stub, self.assertRaises(BackendError) as caught:
+            OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a"])
+        self.assertFalse(caught.exception.retryable)
+
+    def test_a_weights_update_is_seen_without_restarting_the_service(self):
+        """ADR 0003 : un `ollama pull` derrière le même alias change l'identifiant."""
+        installed = {"digest": "aaaaaaaaaaaa0000"}
+        routes = ollama_routes(tags=lambda: [{"name": "bge-m3:latest", **installed},
+                                             {"name": "qwen3:4b", **installed}])
+        with StubServer(routes) as stub:
+            embedder = OllamaEmbeddingBackend("bge-m3", base_url=stub.url)
+            generator = OllamaGenerationBackend("qwen3:4b", base_url=stub.url)
+            before = embedder.embed(["a"]).model_id, generator.generate("s", "p", 0.2, 10, None)[0]
+            installed["digest"] = "bbbbbbbbbbbb0000"   # ollama pull : nouvelle version
+            after = embedder.embed(["a"]).model_id, generator.generate("s", "p", 0.2, 10, None)[0]
+        self.assertEqual(before, ("ollama:bge-m3@aaaaaaaaaaaa", "ollama:qwen3:4b@aaaaaaaaaaaa"))
+        self.assertEqual(after, ("ollama:bge-m3@bbbbbbbbbbbb", "ollama:qwen3:4b@bbbbbbbbbbbb"))
+
+    def test_a_pull_during_the_call_is_an_error(self):
+        """On ne sait pas quelle version a servi : on échoue plutôt que d'étiqueter au hasard."""
+        calls = {
+            "/api/embed": lambda url: OllamaEmbeddingBackend("bge-m3", base_url=url).embed(["a"]),
+            "/api/chat": lambda url: OllamaGenerationBackend("bge-m3", base_url=url).generate("s", "p", 0.2, 10, None),
+        }
+        for path, call in calls.items():
+            with self.subTest(path=path):
+                installed = {"digest": "aaaaaaaaaaaa0000"}
+                routes = ollama_routes(tags=lambda: [{"name": "bge-m3:latest", **installed}])
+                inference = routes[("POST", path)]
+
+                def pull_then_infer(body, inference=inference, installed=installed):
+                    installed["digest"] = "bbbbbbbbbbbb0000"   # ollama pull pendant l'inférence
+                    return inference(body)
+
+                routes[("POST", path)] = pull_then_infer
+                with StubServer(routes) as stub, self.assertRaises(BackendError) as caught:
+                    call(stub.url)
+                self.assertIn("a changé pendant l'appel", str(caught.exception))
+
+    def test_no_digest_no_identifier(self):
+        """Sans empreinte, on ne peut pas rattacher le résultat à un modèle : erreur, pas d'appel."""
+        failing_tags = ollama_routes()
+        failing_tags[("GET", "/api/tags")] = lambda body: (500, {"error": "chargement"})
+        cases = {
+            "modèle absent": ollama_routes(tags=lambda: []),
+            "entrée sans empreinte": ollama_routes(tags=lambda: [{"name": "bge-m3:latest"}]),
+            "empreinte nulle": ollama_routes(tags=lambda: [{"name": "bge-m3:latest", "digest": None}]),
+            "/api/tags en erreur": failing_tags,
+        }
+        for case, routes in cases.items():
+            with self.subTest(case), StubServer(routes) as stub:
+                with self.assertRaises(BackendError) as caught:
+                    OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a"])
+                self.assertNotIn("/api/embed", [path for _, path, _ in stub.requests])
+                # Modèle absent : définitif ; Ollama en erreur passagère : réessayer a un sens.
+                self.assertEqual(caught.exception.retryable, case == "/api/tags en erreur")
+
+    def test_the_model_name_is_compared_the_way_ollama_does(self):
+        """Casse, tag « latest » implicite, registre et espace « library » facultatifs."""
+        tags = [{"name": "bge-m3:latest", "digest": "0123456789ab0000"}]
+        with StubServer(ollama_routes(tags=lambda: tags)) as stub:
+            for name in ("bge-m3", "BGE-M3", "bge-m3:LATEST", "registry.ollama.ai/library/bge-m3"):
+                with self.subTest(name):
+                    model_id = OllamaEmbeddingBackend(name, base_url=stub.url).embed(["a"]).model_id
+                    self.assertEqual(model_id, f"ollama:{name}@0123456789ab")
+
+
+class SentenceTransformersBackendTest(unittest.TestCase):
+    @unittest.skipIf(importlib.util.find_spec("sentence_transformers"), "sentence-transformers est installé")
+    def test_a_missing_library_is_not_worth_retrying(self):
+        with self.assertRaises(BackendError) as caught:
+            SentenceTransformersEmbeddingBackend("modele").embed(["a"])
+        self.assertFalse(caught.exception.retryable)
+        self.assertIn("pip install", str(caught.exception))
 
 
 class OpenAICompatibleBackendTest(unittest.TestCase):
@@ -116,6 +197,33 @@ class RegistryTest(unittest.TestCase):
         direct = HashingEmbeddingBackend(dimension=16)
         self.assertEqual(model.embed(["bonjour"], "query").vectors, direct.embed(["query: bonjour"]).vectors)
         self.assertEqual(model.embed(["bonjour"], "document").vectors, direct.embed(["passage: bonjour"]).vectors)
+
+    def test_prefixes_are_part_of_the_model_identity(self):
+        """Changer un préfixe change les vecteurs : l'identifiant doit changer aussi (ADR 0003)."""
+        def model_id(**prefixes):
+            registry = ModelRegistry.from_dict({"embedding": {"e5": {"backend": "hashing", "dimension": 16, **prefixes}}})
+            return registry.embedding("e5").embed(["bonjour"], "query").model_id
+
+        plain = model_id()
+        with_prefixes = model_id(query_prefix="query: ", document_prefix="passage: ")
+        other_prefixes = model_id(query_prefix="search_query: ", document_prefix="passage: ")
+        self.assertEqual(plain, "hashing-16-stem6")
+        self.assertEqual(len({plain, with_prefixes, other_prefixes}), 3)
+        self.assertTrue(with_prefixes.startswith("hashing-16-stem6+prefixes-"))
+
+    def test_reasoning_tags_are_removed_whatever_the_engine(self):
+        """Une particularité de modèle (qwen3…), pas de moteur : Ollama comme serveur compatible OpenAI."""
+        leaked = "<think>je réfléchis</think>\nRéponse [1]"
+        ollama = ollama_routes()
+        ollama[("POST", "/api/chat")] = lambda body: (200, {"message": {"role": "assistant", "content": leaked}})
+        openai = openai_routes()
+        openai[("POST", "/v1/chat/completions")] = lambda body: (200, {"choices": [{"message": {"content": leaked}}]})
+        for backend, routes, suffix in (("ollama", ollama, ""), ("openai-compatible", openai, "/v1")):
+            with self.subTest(backend), StubServer(routes) as stub:
+                registry = ModelRegistry.from_dict({"generation": {"m": {
+                    "backend": backend, "model": "qwen3:1.7b", "base_url": stub.url + suffix}}})
+                _, text = registry.generation("m").generate("s", "p", 0.2, 50, None)
+                self.assertEqual(text, "Réponse [1]")
 
     def test_unknown_model(self):
         with self.assertRaises(UnknownModelError):

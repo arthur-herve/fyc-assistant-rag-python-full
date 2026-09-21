@@ -59,10 +59,10 @@ eval/questions*.json        questions d'évaluation : Solvéo ; Service-Public (
 docs/installation.md        guide pas à pas Windows / macOS / Linux, durées mesurées, pannes courantes
 docs/contrat-http.md        contrat entre les deux programmes
 docs/artefacts.md           les sept artefacts à versionner ensemble, et ce que le code détecte
-docs/adr/                   huit décisions d'architecture, avec ce qui a été écarté
+docs/adr/                   neuf décisions d'architecture, avec ce qui a été écarté
 exercices/                  exercices de code : kits de départ, énoncés, corrigés (S2.2, S3.1, S4.1)
 cas-pratique/               S5.1 : une version mal structurée du fil rouge à rendre maintenable, énoncé, grille, corrigé
-tests/                      133 tests, bibliothèque standard uniquement
+tests/                      182 tests, bibliothèque standard uniquement
 ```
 
 ## Démarrage rapide (hors-ligne, sans modèle)
@@ -82,7 +82,7 @@ python -m ai_service
 ```bash
 python -m assistant index
 python -m assistant ask "Combien de jours de télétravail par semaine ?"
-python -m assistant ask "Quelle est la fourchette de salaire d'un consultant senior ?" --user alice   # refus : document RH
+python -m assistant ask "Quelle est la fourchette de salaire d'un consultant senior ?" --user alice   # la grille (RH) est filtrée avant le prompt : réponse tirée d'une fiche publique, voir -v
 python -m assistant ask "Quelle est la fourchette de salaire d'un consultant senior ?" --user bruno   # autorisé
 python -m assistant ask "Quelle est la capitale de l'Australie ?" -v                                 # hors corpus, trace détaillée
 ```
@@ -105,6 +105,8 @@ curl -X POST http://127.0.0.1:8000/v1/ask -H "Content-Type: application/json" \
      -d '{"user": "alice", "question": "Quel est le plafond pour un repas le midi ?"}'
 ```
 
+Erreurs (mêmes codes que la version C#) : `400 invalid_json` / `invalid_request` / `invalid_question`, `403 unknown_user`, `404 not_found`, `405 method_not_allowed`, `409 index_unusable`, `500 unreadable_state` / `internal_error`, `502 ai_service_error`.
+
 **L'index est-il encore valable ? Qu'est-ce qui a bougé ?**
 
 ```bash
@@ -125,8 +127,10 @@ des artefacts et de ce que le code détecte : `docs/artefacts.md`.
 2. Télécharger au moins un modèle d'embeddings et un modèle de génération. Les noms sont à vérifier sur <https://ollama.com/library> :
 
    ```bash
-   ollama pull nomic-embed-text
-   ollama pull qwen3:1.7b
+   ollama pull bge-m3              # embeddings par défaut, 1,2 Go
+   ollama pull llama3.2:3b         # génération par défaut, 2,0 Go
+   ollama pull nomic-embed-text    # embeddings « de rupture », 274 Mo
+   ollama pull qwen3:4b            # génération « de rupture », 2,5 Go (séquences 3.3 et 4.1)
    ```
 
 3. Relancer le service IA (`python -m ai_service`), puis utiliser la configuration « cours »
@@ -135,7 +139,7 @@ des artefacts et de ce que le code détecte : `docs/artefacts.md`.
    ```bash
    python -m assistant index --config config/app-ollama.toml
    python -m assistant ask "Combien de jours dure le congé de paternité ?" --config config/app-ollama.toml -v
-   python -m assistant ask "Quel délai laisser après un abandon de poste ?" --user alice --config config/app-ollama.toml   # refus : dossier RH
+   python -m assistant ask "Quel délai laisser après un abandon de poste ?" --user alice --config config/app-ollama.toml   # fiche RH filtrée : réponse tirée d'une fiche publique
    python -m assistant ask "Quel délai laisser après un abandon de poste ?" --user bruno --config config/app-ollama.toml   # autorisé
    ```
 
@@ -221,7 +225,9 @@ Sur le serveur applicatif : `base_url` dans `config/app.toml`, ou variable d'env
 AI_SERVICE_URL=http://machine-gpu:8100 python -m assistant serve --host 0.0.0.0
 ```
 
-⚠️ Le service IA n'a **aucune authentification** : il est prévu pour un réseau interne. En production, le placer derrière un proxy authentifié.
+⚠️ Ni le service IA ni l'application n'ont d'**authentification** : ils sont prévus pour un réseau interne.
+L'application croit l'utilisateur que déclare l'appelant (`"user": "alice"`) : les droits d'accès ne protègent
+donc que si un proxy authentifié fixe ce champ. En production, placer les deux derrière un tel proxy.
 
 ## Points de départ pour les apprenants
 
@@ -254,7 +260,7 @@ python -m unittest discover -s tests -t .
 | 3.1 — non-déterminisme et testabilité | vérification déterministe des citations (`domain/citations.py`) autour d'un appel probabiliste · nouvelles tentatives · `tests/unit/test_statistical_evaluation.py` · générateur `extractive-bruite` · métrique de stabilité du banc · instantanés (`snapshot record/compare`) · `tools/experiences/stabilite.py` · `--validate-with` du banc · exercice `exercices/s3.1-evaluation-statistique/` |
 | 3.2 — les données sont du code (CACE) | `IndexModelMismatchError` · découpage enregistré dans le manifeste · seuil de pertinence **par modèle et par corpus** · `tools/experiences/cace_decoupage.py` et `changement_embeddings.py` · ADR 0004 |
 | 3.3 — le prompt : configuration ou métier ? | `prompts/answer.toml` et `answer-v2.toml` : construits par l'application, versionnés, tracés dans chaque réponse · `tools/experiences/prompt_v2.py` et `changement_generateur.py` · ADR 0005 |
-| 4.1 — isoler l'incertitude | les droits d'accès filtrent **avant** le modèle ; les préfixes propres aux modèles sont gérés dans `ai_service/registry.py` ; les balises `<think>` et le budget de réflexion dans `backends/ollama.py` ; **décorateurs** empilés par `composition.decorate()` : `infrastructure/decorators.py` (cache, journal, tentatives) et `application/guards.py` (validation de la forme : `domain/output_rules.py`) ; exercice `exercices/s4.1-decorateur-de-validation/` (branche `s4.1-depart`) ; ADR 0008 |
+| 4.1 — isoler l'incertitude | les droits d'accès filtrent **avant** le modèle ; les préfixes propres aux modèles sont gérés dans `ai_service/registry.py` ; les balises `<think>` retirées par `ai_service/registry.py` pour tous les moteurs, le budget de réflexion dans `backends/ollama.py` ; **décorateurs** empilés par `composition.decorate()` : `infrastructure/decorators.py` (cache, journal, tentatives) et `application/guards.py` (validation de la forme : `domain/output_rules.py`) ; exercice `exercices/s4.1-decorateur-de-validation/` (branche `s4.1-depart`) ; ADR 0008 |
 | 4.2 — versionner ensemble | `IndexManifest` (empreinte du corpus, découpage, modèle concret) · `AnswerTrace` (index, modèles, version du prompt, passages et scores) · `status` (`application/status.py`) · instantanés et dérive (`application/snapshots.py`) · port `Clock` · `docs/artefacts.md` |
 | 4.3 — les limites | index JSON à recherche exhaustive : ≈ 0,1 s pour 3 505 morceaux (93 ms mesurés sans modèle), inutile de sortir une base vectorielle ; ADR 0007 |
 | 5.1 / 5.2 — le cas pratique | `cas-pratique/depart/assistant_rag.py` (version mal structurée, fonctionnelle), énoncé, grille sur 20, tableau défaut → correction |

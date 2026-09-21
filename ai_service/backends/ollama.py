@@ -5,14 +5,19 @@ API utilisée : POST /api/embed, POST /api/chat, GET /api/tags.
 
 from __future__ import annotations
 
-import re
-import threading
-from typing import Sequence
+from typing import Callable, Sequence, TypeVar
 
 from .base import BackendError, Vectors
 from .http_json import request_json
 
-_THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
+T = TypeVar("T")
+
+
+def _canonical(name: str) -> str:
+    """Nom tel qu'Ollama le compare : sans tenir compte de la casse, sans le registre
+    ni l'espace « library » par défaut, avec le tag « latest » s'il n'y en a pas."""
+    name = name.strip().casefold().removeprefix("registry.ollama.ai/").removeprefix("library/")
+    return name if ":" in name.rsplit("/", 1)[-1] else f"{name}:latest"
 
 
 class _OllamaModel:
@@ -20,39 +25,49 @@ class _OllamaModel:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self._model_id: str | None = None
-        self._lock = threading.Lock()
 
     def model_id(self) -> str:
-        """Identifiant avec l'empreinte du modèle : un `ollama pull` qui met à jour
-        les poids change l'identifiant, et l'application le détecte."""
-        with self._lock:
-            if self._model_id is None:
-                digest = ""
-                try:
-                    tags = request_json("GET", f"{self.base_url}/api/tags", None, 10)
-                    wanted = {self.model, f"{self.model}:latest"}
-                    for entry in tags.get("models", []):
-                        if entry.get("name") in wanted or entry.get("model") in wanted:
-                            digest = entry.get("digest", "")[:12]
-                            break
-                except BackendError:
-                    pass
-                if not digest:
-                    # Ollama n'a pas répondu (chargement en cours ?) : on réessaiera au prochain
-                    # appel plutôt que de figer un identifiant sans empreinte pour tout le processus.
-                    return f"ollama:{self.model}"
-                self._model_id = f"ollama:{self.model}@{digest}"
-            return self._model_id
+        """Identifiant avec l'empreinte du modèle installé (poids, gabarit, paramètres),
+        relue à chaque appel : un `ollama pull` qui la change change l'identifiant, et
+        l'application le détecte sans redémarrer le service. Sans empreinte, pas
+        d'identifiant."""
+        installed = _call(self, "GET", "/api/tags", None, timeout=10).get("models", [])
+        wanted = _canonical(self.model)
+        for entry in installed:
+            if wanted in (_canonical(entry.get("name") or ""), _canonical(entry.get("model") or "")):
+                digest = str(entry.get("digest") or "")[:12]
+                if digest:
+                    return f"ollama:{self.model}@{digest}"
+        names = ", ".join(str(entry.get("name")) for entry in installed) or "aucun"
+        raise BackendError(
+            f"empreinte de {self.model} introuvable dans {self.base_url}/api/tags "
+            f"(modèles installés : {names}) : le modèle est-il téléchargé (ollama pull {self.model}) ?",
+            retryable=False,
+        )
+
+    def _identified(self, call: Callable[[], T]) -> tuple[str, T]:
+        """Exécute `call` et renvoie (identifiant du modèle qui a servi, résultat).
+
+        L'empreinte est lue avant et après l'appel : si un `ollama pull` l'a changée
+        entre-temps, on ne sait pas quelle version a servi, donc on échoue (erreur
+        passagère : il suffit de réessayer)."""
+        before = self.model_id()
+        result = call()
+        after = self.model_id()
+        if after != before:
+            raise BackendError(f"{self.model} a changé pendant l'appel ({before} → {after}) : réessayer")
+        return before, result
 
 
-def _call(model: _OllamaModel, path: str, payload: dict) -> dict:
+def _call(model: _OllamaModel, method: str, path: str, payload: dict | None,
+          timeout: float | None = None) -> dict:
     try:
-        return request_json("POST", f"{model.base_url}{path}", payload, model.timeout)
+        return request_json(method, f"{model.base_url}{path}", payload, timeout or model.timeout)
     except BackendError as error:
         raise BackendError(
             f"{error} — Ollama est-il lancé sur {model.base_url} ? "
-            f"Le modèle est-il téléchargé (ollama pull {model.model}) ?"
+            f"Le modèle est-il téléchargé (ollama pull {model.model}) ?",
+            retryable=error.retryable,
         ) from error
 
 
@@ -62,11 +77,12 @@ class OllamaEmbeddingBackend(_OllamaModel):
         super().__init__(model, base_url, timeout)
 
     def embed(self, texts: Sequence[str]) -> Vectors:
-        data = _call(self, "/api/embed", {"model": self.model, "input": list(texts)})
+        model_id, data = self._identified(
+            lambda: _call(self, "POST", "/api/embed", {"model": self.model, "input": list(texts)}))
         vectors = data.get("embeddings")
         if not vectors or len(vectors) != len(texts):
-            raise BackendError(f"Ollama n'a pas renvoyé {len(texts)} embeddings")
-        return Vectors(model_id=self.model_id(), dimension=len(vectors[0]), vectors=vectors)
+            raise BackendError(f"Ollama n'a pas renvoyé {len(texts)} embeddings", retryable=False)
+        return Vectors(model_id=model_id, dimension=len(vectors[0]), vectors=vectors)
 
 
 class OllamaGenerationBackend(_OllamaModel):
@@ -108,11 +124,11 @@ class OllamaGenerationBackend(_OllamaModel):
             payload["think"] = self.think  # modèles à « réflexion » (qwen3…)
         if self.keep_alive is not None:
             payload["keep_alive"] = self.keep_alive
-        data = _call(self, "/api/chat", payload)
+        model_id, data = self._identified(lambda: _call(self, "POST", "/api/chat", payload))
         try:
             content = data["message"]["content"]
         except (KeyError, TypeError):
-            raise BackendError(f"Réponse Ollama inattendue : {str(data)[:300]}") from None
-        # Particularité de certains modèles qui fuit jusqu'ici : on la neutralise.
-        # (`message.thinking`, renvoyé à part par Ollama, est simplement ignoré.)
-        return self.model_id(), _THINK.sub("", content).strip()
+            raise BackendError(f"Réponse Ollama inattendue : {str(data)[:300]}", retryable=False) from None
+        # `message.thinking`, renvoyé à part par Ollama, est ignoré ; les balises <think> laissées
+        # dans la réponse sont retirées par le registre, quel que soit le moteur.
+        return model_id, content.strip()

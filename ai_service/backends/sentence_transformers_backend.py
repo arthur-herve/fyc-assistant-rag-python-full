@@ -26,9 +26,10 @@ class SentenceTransformersEmbeddingBackend:
                 try:
                     from sentence_transformers import SentenceTransformer
                 except ImportError as error:
-                    raise BackendError(
+                    raise BackendError(   # réessayer n'installera rien : erreur définitive
                         "sentence-transformers n'est pas installé : "
-                        "pip install -r requirements-ai-optional.txt"
+                        "pip install -r requirements-ai-optional.txt",
+                        retryable=False,
                     ) from error
                 self._model = SentenceTransformer(self._model_name, device=self._device)
             return self._model

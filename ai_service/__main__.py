@@ -21,11 +21,11 @@ def main() -> None:
     registry = ModelRegistry.from_dict(config)
     server_config = config.get("server", {})
     host = args.host or server_config.get("host", "127.0.0.1")
-    port = args.port or server_config.get("port", 8100)
+    port = args.port if args.port is not None else server_config.get("port", 8100)
 
     server = create_server(registry, host, port)
     models = registry.describe()
-    print(f"Service IA sur http://{host}:{port}")
+    print(f"Service IA sur http://{host}:{server.server_address[1]}")
     print("  embeddings :", ", ".join(m["alias"] for m in models["embedding"]))
     print("  génération :", ", ".join(m["alias"] for m in models["generation"]))
     try:

@@ -54,6 +54,13 @@ class CheckStatusTest(unittest.TestCase):
         self.assertIn("corpus modifié", report.issues[0])
         self.assertIn("réindexer", report.issues[0])
 
+    def test_detects_a_text_modified_under_the_same_id(self):
+        """Même documents, mêmes identifiants : seul un texte a changé, et cela suffit."""
+        edited = [make_document("a", "télétravail trois jours"), DOCS[1]]
+        report = status(build_index(), documents=edited)
+        self.assertEqual(len(report.issues), 1)
+        self.assertIn("corpus modifié", report.issues[0])
+
     def test_detects_a_changed_access_right_as_a_corpus_change(self):
         restricted = [make_document("a", "télétravail deux jours", groups=("rh",)), DOCS[1]]
         report = status(build_index(), documents=restricted)

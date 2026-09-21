@@ -55,11 +55,11 @@ Le corrigé est le code de la branche `main` (étiquette `fil-rouge-2026-09-11`)
 
 | Étape | Fichier | Ce qu'il fait |
 |---|---|---|
-| 1 | `assistant/domain/output_rules.py` | `check_output` : vide ; longueur ; marqueurs de raisonnement (`<think>`, « okay, let », « the user is asking »…) ; ratio de mots-outils anglais contre français sur les textes d'au moins 8 mots |
+| 1 | `assistant/domain/output_rules.py` | `check_output` : vide ; longueur ; marqueurs de raisonnement (`<think>`, « okay, let », « the user is asking »…) ; ratio de mots-outils anglais contre français sur les textes d'au moins 5 mots |
 | 2 | `assistant/application/guards.py` | `OutputValidatingGenerator.generate` : appelle `inner.generate`, puis `check_output` ; lève `ModelOutputRejectedError(model, text, problems)` |
 | 2 | `assistant/application/errors.py` | `ModelOutputRejectedError(ApplicationError)` avec `model`, `text`, `problems` |
 | 3 | `assistant/application/ask_question.py` | dans la boucle des tentatives : `except ModelOutputRejectedError as rejected:` → `raw_outputs.append("<rejetée : …> " + texte)`, `continue` |
-| 4 | `assistant/composition.py` | `decorate()` : `if options.get("validate_output", True): generator = OutputValidatingGenerator(generator, max_chars)` ; ordre : tentatives → journal → cache → validation |
+| 4 | `assistant/composition.py` | `decorate()` : `if options.get("validate_output", True): generator = OutputValidatingGenerator(generator, max_chars)` ; ordre : tentatives → journal → cache → validation → journal des générations |
 | 5 | `tests/architecture/test_dependency_rule.py` | `test_only_the_composition_root_knows_the_infrastructure` |
 
 Réponses aux questions :
@@ -75,12 +75,17 @@ Réponses aux questions :
   *cette* application : une autre application pourrait vouloir des réponses en anglais ou longues.
   Mettre la règle dans le service, c'est faire fuir le métier vers l'infrastructure — l'inverse
   de ce qu'on cherche. Voir ADR 0008.
-- **Ordre des décorateurs.** Validation sous les tentatives réseau : une sortie rejetée serait
-  prise pour une panne du service et relancée avec le même prompt, en consommant les tentatives
-  réseau ; et une vraie panne réseau serait masquée par une erreur de validation. La validation
-  est une règle métier : au plus près du cas d'usage, donc à l'extérieur de la pile. (Le cache
-  du dépôt ne concerne que les embeddings ; pour un cache de réponses, la même question se
-  poserait : on ne mettrait en cache que ce qui a passé la validation.)
+- **Ordre des décorateurs.** Avec le décorateur de tentatives du dépôt, placer la validation
+  dessous ne change rien : il ne relance que les pannes passagères du service IA (`AIServiceError`
+  passagère), et une sortie rejetée le traverse sans nouvel appel au modèle. C'est ce filtre qui
+  protège, pas l'ordre : un décorateur de tentatives qui attraperait toute erreur relancerait une
+  sortie rejetée comme une panne, avec le même prompt, en consommant les tentatives réseau.
+  Mettre la validation au-dessus rend la pile sûre quel que soit ce filtre, et chaque décorateur
+  reste à sa place : les tentatives traitent le réseau, au plus près de lui ; la validation est
+  une règle métier, au plus près du cas d'usage. Seul le journal des générations est encore
+  au-dessus, pour voir aussi les rejets. (Le cache du dépôt ne concerne que les embeddings ;
+  pour un cache de réponses, la même question se poserait : on ne mettrait en cache que ce qui
+  a passé la validation.)
 - **Limites de l'heuristique.** Rejet à tort possible : une réponse française qui cite un intitulé
   anglais long (« the General Data Protection Regulation… ») ; acceptation à tort : un raisonnement
   déversé *en français* sans les marqueurs listés. C'est la limite annoncée en S3.1 : un test

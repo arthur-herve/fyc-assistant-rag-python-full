@@ -60,9 +60,10 @@ Ordre conseillé : 1, 2, puis 3 en faisant passer les tests un par un, dans l'or
 
 `solution/` contient les trois fichiers. Copiez-les dans `depart/coeur/` pour vérifier :
 18 tests verts. Ils sont identiques, aux imports près, à `assistant/domain/access.py`,
-`assistant/domain/citations.py` et `assistant/application/ask_question.py` du dépôt : ce que vous
-venez d'écrire est **le cœur réel** de l'assistant fil rouge, celui qui tourne en séquence 2.3
-derrière de vrais modèles.
+`assistant/domain/citations.py` et `assistant/application/ask_question.py` du dépôt (le fil rouge
+délègue en plus la recherche à un cas d'usage `SearchPassages`, réutilisé par le banc d'essai) :
+ce que vous venez d'écrire est **le cœur réel** de l'assistant fil rouge, celui qui tourne en
+séquence 2.3 derrière de vrais modèles.
 
 Réponses aux questions :
 

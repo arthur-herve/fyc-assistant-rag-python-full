@@ -2,13 +2,14 @@
 
 import logging
 import unittest
+from pathlib import Path
 
 from assistant.application.ask_question import AskQuestion, AskSettings
 from assistant.application.errors import AIServiceError, ModelOutputRejectedError
 from assistant.application.guards import OutputValidatingGenerator
 from assistant.application.index_corpus import IndexCorpus
-from assistant.application.ports import Generation, GenerationRequest
-from assistant.composition import decorate
+from assistant.application.ports import Generation, GenerationRequest, IndexManifest
+from assistant.composition import AppConfig, build, decorate
 from assistant.domain.model import AnswerStatus, User
 from assistant.infrastructure.decorators import (
     CachedEmbedder, LoggingGenerator, RetryingEmbedder, RetryingGenerator,
@@ -18,6 +19,7 @@ from tests.fakes import (
     WholeDocumentSplitter, make_document,
 )
 
+ROOT = Path(__file__).resolve().parents[2]
 REQUEST = GenerationRequest("système", "Passages :\n[1] x\n\nQuestion : ?", 0.2, 100)
 SILENT = logging.getLogger("test.silencieux")
 SILENT.addHandler(logging.NullHandler())
@@ -74,23 +76,54 @@ class OutputValidatingGeneratorTest(unittest.TestCase):
         self.assertEqual(len(answer.trace.raw_outputs), 2)
 
 
+def manifest(model: str = "fake-keywords", dimension: int = 8) -> IndexManifest:
+    return IndexManifest("idx", model, dimension, "empreinte", {"type": "whole"}, 1, 1, "2026-09-21T12:00:00")
+
+
 class CachedEmbedderTest(unittest.TestCase):
-    def test_same_text_is_embedded_once(self):
-        inner = KeywordEmbedder()
-        cached = CachedEmbedder(inner)
+    def test_same_question_is_embedded_once(self):
+        inner, index = KeywordEmbedder(), manifest()
+        cached = CachedEmbedder(inner, current_index=lambda: index)
         first = cached.embed_query("télétravail")
         second = cached.embed_query("télétravail")
         self.assertIs(first, second)
         self.assertEqual(len(inner.calls), 1)
         self.assertEqual((cached.hits, cached.misses), (1, 1))
 
-    def test_documents_are_cached_by_batch(self):
-        inner = KeywordEmbedder()
-        cached = CachedEmbedder(inner)
+    def test_documents_are_never_cached(self):
+        """Une réindexation doit refléter le modèle servi maintenant (S4.2)."""
+        inner, index = KeywordEmbedder(), manifest()
+        cached = CachedEmbedder(inner, current_index=lambda: index)
         cached.embed_documents(["a", "b"])
         cached.embed_documents(["a", "b"])
-        cached.embed_documents(["a"])
         self.assertEqual(len(inner.calls), 2)
+
+    def test_a_new_index_empties_the_cache_even_with_the_same_model_name(self):
+        """Préfixes changés, moteur sans empreinte : les vecteurs changent, pas le nom du modèle."""
+        inner, current = KeywordEmbedder(), {"index": manifest()}
+        cached = CachedEmbedder(inner, current_index=lambda: current["index"])
+        cached.embed_query("télétravail")
+        current["index"] = manifest()   # réindexé : nouveau manifeste, mêmes valeurs
+        cached.embed_query("télétravail")
+        self.assertEqual(len(inner.calls), 2)
+
+    def test_vectors_that_do_not_match_the_index_are_not_kept(self):
+        """Sinon, une question posée pendant que le service servait un autre modèle
+        resterait en erreur après le retour du service au modèle de l'index."""
+        inner, index = KeywordEmbedder("modele-b"), manifest("modele-a")
+        cached = CachedEmbedder(inner, current_index=lambda: index)
+        self.assertEqual(cached.embed_query("télétravail").model, "modele-b")   # AskQuestion : erreur
+        inner.model = "modele-a"                                                # le service revient
+        self.assertEqual(cached.embed_query("télétravail").model, "modele-a")
+        cached.embed_query("télétravail")
+        self.assertEqual((len(inner.calls), cached.hits), (2, 1))
+
+    def test_the_oldest_question_leaves_first(self):
+        inner, index = KeywordEmbedder(), manifest()
+        cached = CachedEmbedder(inner, current_index=lambda: index, max_entries=1)
+        for question in ("télétravail", "congés", "télétravail"):
+            cached.embed_query(question)
+        self.assertEqual(len(inner.calls), 3)
 
 
 class RetryingTest(unittest.TestCase):
@@ -149,23 +182,33 @@ class LoggingTest(unittest.TestCase):
 
 
 class CompositionTest(unittest.TestCase):
-    def test_status_uses_the_raw_embedder_not_the_cache(self):
-        """Un cache d'embeddings masquerait un changement de modèle servi (revue du 11/09)."""
-        import inspect
-
-        from assistant import composition
-        self.assertIn("CheckStatus(source, splitter, raw_embedder", inspect.getsource(composition.build))
-
     def test_decorators_are_stacked_from_configuration_only(self):
-        embedder, generator = decorate(KeywordEmbedder(), ScriptedGenerator("x"), {})
+        no_index = lambda: None  # noqa: E731
+        embedder, generator = decorate(KeywordEmbedder(), ScriptedGenerator("x"), {}, current_index=no_index)
         self.assertIsInstance(generator, OutputValidatingGenerator)   # règle métier : activée par défaut
         self.assertIsInstance(embedder, KeywordEmbedder)              # rien de technique sans le demander
 
         embedder, generator = decorate(KeywordEmbedder(), ScriptedGenerator("x"),
                                        {"cache_embeddings": True, "retries": 2, "log": True,
-                                        "validate_output": False})
+                                        "validate_output": False}, current_index=no_index)
         self.assertIsInstance(embedder, CachedEmbedder)
         self.assertNotIsInstance(generator, OutputValidatingGenerator)
+
+    def test_a_rejected_output_is_refused_and_logged_whatever_else_is_stacked(self):
+        options = {"cache_embeddings": True, "retries": 2, "log": True}
+        _, generator = decorate(KeywordEmbedder(), ScriptedGenerator(LEAK), options, current_index=lambda: None)
+        with self.assertLogs("assistant", level="WARNING") as logs, self.assertRaises(ModelOutputRejectedError):
+            generator.generate(REQUEST)
+        self.assertIn("rejetée", "\n".join(logs.output))   # la validation est sous le journal des générations
+        _, unchecked = decorate(KeywordEmbedder(), ScriptedGenerator(LEAK), {**options, "validate_output": False},
+                                current_index=lambda: None)
+        self.assertEqual(unchecked.generate(REQUEST).text, LEAK)
+
+    def test_the_threshold_follows_the_embedding_model_chosen_on_the_command_line(self):
+        config = AppConfig.load(ROOT / "config" / "app.toml")
+        self.assertNotEqual(config.min_score_for("nomic"), config.min_score_for(config.embedding_model))
+        self.assertEqual(build(config, embedding_model="nomic").settings.min_score, config.min_score_for("nomic"))
+        self.assertEqual(build(config, embedding_model="nomic", min_score=0.9).settings.min_score, 0.9)
 
 
 if __name__ == "__main__":

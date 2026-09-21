@@ -94,7 +94,7 @@ class CheckStatus:
                     f"avec « {manifest.embedding_model} » ({manifest.dimension} dim.) : réindexer"
                 )
         if service_error is not None:
-            issues.append(f"service IA injoignable, modèle servi non vérifié : {service_error}")
+            issues.append(f"modèle servi non vérifié, le service IA a échoué : {service_error}")
 
         return StatusReport(
             index=manifest,

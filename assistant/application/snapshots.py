@@ -21,7 +21,7 @@ from assistant.domain.model import User
 from .ask_question import AskQuestion
 from .ports import Clock, Snapshot, SnapshotEntry, SnapshotStore
 
-SNAPSHOT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+SNAPSHOT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")   # toujours avec fullmatch
 
 
 class InvalidSnapshotNameError(ValueError):
@@ -45,7 +45,7 @@ class RecordSnapshot:
         self._configuration = dict(configuration)
 
     def execute(self, name: str, questions: Sequence[SnapshotQuestion]) -> Snapshot:
-        if not SNAPSHOT_NAME.match(name):
+        if not SNAPSHOT_NAME.fullmatch(name):
             raise InvalidSnapshotNameError(name)   # avant de poser la moindre question
         entries: list[SnapshotEntry] = []
         configuration = dict(self._configuration)
@@ -80,9 +80,10 @@ class RecordSnapshot:
         return snapshot
 
 
-# Natures d'écart, de la plus bénigne à la plus grave.
+# Natures d'écart, de la moins visible à la plus visible. « Moins visible » ne veut pas dire
+# bénin : un texte modifié peut dire le contraire du précédent avec les mêmes sources.
 IDENTICAL = "identique"
-TEXT_CHANGED = "texte modifié"            # mêmes sources, même statut : reformulation
+TEXT_CHANGED = "texte modifié"            # mêmes sources, même statut : texte à relire
 SOURCES_CHANGED = "sources modifiées"     # la réponse ne s'appuie plus sur le même matériau
 STATUS_CHANGED = "statut modifié"         # un refus devient une réponse, ou l'inverse
 MISSING = "absente d'un des deux"

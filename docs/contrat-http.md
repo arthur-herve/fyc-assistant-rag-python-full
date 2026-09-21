@@ -40,7 +40,7 @@ Réponse :
 
 ```json
 {
-  "model": "ollama:nomic-embed-text@0a109f422b47",
+  "model": "ollama:nomic-embed-text@0a109f422b47+prefixes-03aa22a9",
   "alias": "nomic",
   "dimension": 768,
   "vectors": [[0.012, -0.034, ...]],
@@ -48,7 +48,7 @@ Réponse :
 }
 ```
 
-`model` est l'identifiant concret, empreinte des poids comprise quand le moteur la fournit. Si l'équipe qui exploite le service met à jour le modèle derrière le même alias, `model` change, et l'application refuse d'interroger l'ancien index.
+`model` est l'identifiant concret : empreinte du modèle quand le moteur la fournit (Ollama : relue avant et après chaque inférence), et empreinte des préfixes quand l'alias en déclare (`+prefixes-…`), car ils changent les vecteurs (ADR 0009). Si l'équipe qui exploite le service met à jour le modèle derrière le même alias, `model` change, et l'application refuse de chercher dans l'ancien index avec des vecteurs du nouveau modèle.
 
 ## `POST /v1/generate`
 
@@ -83,12 +83,17 @@ Toujours au format :
 {"error": {"code": "unknown_model", "message": "modèle de génération inconnu : gpt-9 (…)"}}
 ```
 
+Pour un 502, `retryable` dit si réessayer peut réussir : `true` pour un moteur injoignable ou
+surchargé, `false` pour un modèle absent ou une réponse que le moteur renverra toujours pareille.
+Les clients ne réessaient que les 5xx qui ne portent pas `"retryable": false`.
+
 | HTTP | `code` | Cause |
 |---|---|---|
 | 400 | `invalid_request` | champ manquant, type ou valeur invalide |
 | 404 | `unknown_model` | alias absent de la configuration |
 | 404 | `not_found` | route inconnue |
-| 502 | `backend_error` | le moteur (Ollama, serveur OpenAI-compatible…) est injoignable ou a échoué |
+| 405 | `method_not_allowed` | méthode autre que GET (`/health`, `/v1/models`) ou POST (`/v1/embeddings`, `/v1/generate`) |
+| 502 | `backend_error` | le moteur (Ollama, serveur OpenAI-compatible…) est injoignable ou a échoué ; avec Ollama, aussi : empreinte du modèle introuvable (`retryable: false`) ou changée pendant l'appel (`retryable: true`) |
 | 500 | `internal_error` | erreur imprévue |
 
 ## Évolution du contrat

@@ -2,7 +2,8 @@
 
 Une décision par fichier : contexte, décision, conséquences, ce qu'on a écarté. Elles se lisent
 dans l'ordre. Une ADR n'est jamais modifiée après coup : une décision qui change donne une
-nouvelle ADR qui remplace l'ancienne.
+nouvelle ADR qui remplace l'ancienne. Seules exceptions, datées : la ligne de statut (« complétée
+par l'ADR … ») et un erratum en fin de document quand un fait énoncé s'avère faux.
 
 | N° | Décision | Séquences |
 |---|---|---|
@@ -14,3 +15,4 @@ nouvelle ADR qui remplace l'ancienne.
 | [0006](0006-droits-filtres-avant-le-prompt.md) | Les droits d'accès sont filtrés avant le prompt, jamais confiés au modèle | S4.1 |
 | [0007](0007-bibliotheque-standard.md) | Bibliothèque standard uniquement dans l'application | S1.1, S4.3 |
 | [0008](0008-decorateurs-et-validation-de-sortie.md) | Les garde-fous sont des décorateurs de ports ; la forme de la sortie est une règle métier | S4.1 |
+| [0009](0009-cache-et-identite-du-modele.md) | Le cache d'embeddings dérive de l'index ; l'identité d'un modèle Ollama est relue à chaque appel | S4.1, S4.2 |

@@ -1,12 +1,14 @@
 """L'importateur Service-Public : une fiche XML devient un document du corpus."""
 
+import contextlib
+import io
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "tools"))
 
-from import_service_public import parse_fiche, to_markdown  # noqa: E402
+from import_service_public import main, parse_fiche, to_markdown  # noqa: E402
 
 from assistant.infrastructure.markdown_corpus import parse_markdown_document  # noqa: E402
 
@@ -75,6 +77,10 @@ class ImportServicePublicTest(unittest.TestCase):
         self.assertEqual(document.allowed_groups, frozenset({"rh"}))
         self.assertTrue(document.text.startswith("# Congé pour événement familial"))
 
+    def test_an_extract_never_overwrites_the_reference_corpus(self):
+        """--limit sans --out écraserait corpus/service-public : refusé avant toute lecture."""
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            main(["--limit", "5"])
 
 if __name__ == "__main__":
     unittest.main()

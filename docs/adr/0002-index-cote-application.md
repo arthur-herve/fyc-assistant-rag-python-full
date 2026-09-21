@@ -1,6 +1,6 @@
 # ADR 0002 — L'index vectoriel vit côté application, pas côté service IA
 
-**Date** : 11/09/2026 · **Statut** : acceptée
+**Date** : 11/09/2026 · **Statut** : acceptée · erratum du 21/09/2026 (en fin de document)
 
 ## Contexte
 
@@ -31,3 +31,10 @@ Index côté service IA : moins de transferts, filtrage possible avant le top-k 
 mais la règle d'accès migre dans un composant technique hors de portée des tests du domaine, et
 l'index devient invisible pour l'application qui en dépend pourtant. Le dilemme pré/post-filtrage
 reste une démonstration optionnelle.
+
+## Erratum (21/09/2026)
+
+Le pré-filtrage n'est pas réservé à un index côté service IA : l'index de l'application le fait
+déjà, en recevant du cas d'usage le prédicat d'accès du domaine (erratum de l'ADR 0006). L'argument
+retenu contre l'index côté service reste le second : un index que l'application ne voit pas, alors
+qu'elle en dépend.

@@ -234,9 +234,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="archive XML de la DILA (défaut : vosdroits-latest.zip)")
     parser.add_argument("--download", action="store_true",
                         help=f"télécharger l'archive depuis {ARCHIVE_URL}")
-    parser.add_argument("--out", default="corpus/service-public", help="dossier de sortie")
+    parser.add_argument("--out", help="dossier de sortie (défaut : corpus/service-public ; "
+                                      "obligatoire avec --limit)")
     parser.add_argument("--limit", type=int, help="ne garder que les N premières fiches")
     args = parser.parse_args(argv)
+    if args.limit and not args.out:
+        parser.error("--limit exige --out : un extrait ne doit pas écraser le corpus de référence")
+    args.out = args.out or "corpus/service-public"
 
     archive = Path(args.archive)
     if args.download:

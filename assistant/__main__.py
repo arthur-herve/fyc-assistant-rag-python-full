@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ask = sub.add_parser("ask", help="poser une question")
     _common(p_ask)
     p_ask.add_argument("question")
-    p_ask.add_argument("--user", default="alice")
+    p_ask.add_argument("--user", default="alice", help="utilisateur déclaré dans la configuration (défaut : alice)")
     p_ask.add_argument("--json", action="store_true", help="sortie JSON")
     p_ask.add_argument("-v", "--verbose", action="store_true", help="afficher la trace complète")
 
@@ -102,6 +102,11 @@ def main(argv: list[str] | None = None) -> int:
         config = AppConfig.load(args.config)
         container = build(config, args.embedding_model, args.generation_model,
                           prompt_name=args.prompt)
+        embedding_model = args.embedding_model or config.embedding_model
+        if not config.has_threshold_for(embedding_model):
+            print(f"Attention : aucun seuil de pertinence configuré pour « {embedding_model} » : valeur "
+                  f"`default` {config.min_score_for(embedding_model)} (ADR 0004 : lancer le banc d'essai)",
+                  file=sys.stderr)
 
         if args.command == "index":
             manifest = container.index_corpus.execute()
@@ -145,7 +150,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "serve":
             from assistant.interface.http_api import create_server
             server = create_server(container, args.host, args.port)
-            print(f"Application sur http://{args.host}:{args.port} "
+            host, port = server.server_address[:2]   # --port 0 : le port réellement choisi
+            print(f"Application sur http://{host}:{port} "
                   f"(service IA : {config.ai_base_url})")
             try:
                 server.serve_forever()
@@ -154,7 +160,8 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 server.server_close()
         return 0
-    except (ApplicationError, DomainError, UnknownUserError, LookupError, ValueError) as error:
+    except (ApplicationError, DomainError, UnknownUserError, ValueError) as error:
+        # ValueError : configuration, corpus, index ou questions mal formés (messages explicites).
         print(f"Erreur : {error}", file=sys.stderr)
         return 1
     except OSError as error:

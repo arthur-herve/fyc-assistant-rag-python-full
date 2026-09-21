@@ -1,4 +1,8 @@
-"""Décorateurs de ports côté application : la couche anticorruption (séquence 4.1).
+"""Décorateurs de ports côté application : des garde-fous autour du modèle (séquence 4.1).
+
+Ce n'est pas, à proprement parler, la couche anticorruption d'Evans : celle-ci traduit un
+modèle étranger vers le nôtre, rôle que tiennent ici le service IA (un contrat pour tous
+les moteurs) et les adaptateurs HTTP.
 
 Un décorateur implémente le même port que l'objet qu'il enveloppe ; le cas
 d'usage ne sait pas s'il parle au modèle ou à un garde-fou. On ajoute ainsi

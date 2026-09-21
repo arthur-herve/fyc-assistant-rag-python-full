@@ -22,11 +22,19 @@ sys.path.insert(0, str(ROOT))
 
 from assistant.application.ports import Snapshot  # noqa: E402
 from assistant.application.snapshots import (  # noqa: E402
-    IDENTICAL, MISSING, SnapshotComparison, SnapshotQuestion, compare_snapshots,
+    IDENTICAL, MISSING, SOURCES_CHANGED, STATUS_CHANGED, TEXT_CHANGED, SnapshotComparison, SnapshotQuestion,
+    compare_snapshots,
 )
 from assistant.composition import AppConfig, build  # noqa: E402
-from assistant.interface.benchmark import EvalQuestion, check_ai_service, load_questions  # noqa: E402
+from assistant.domain.model import AnswerStatus  # noqa: E402
+from assistant.interface.benchmark import (  # noqa: E402
+    EvalQuestion, check_ai_service, keyword_coverage, load_questions,
+)
 from assistant.interface.presenter import comparison_to_text  # noqa: E402
+
+# Noms des statuts dans les instantanés : ceux du domaine, pas des chaînes recopiées.
+ANSWERED, NO_RELEVANT_SOURCE, UNSOURCED = (s.value for s in (
+    AnswerStatus.ANSWERED, AnswerStatus.NO_RELEVANT_SOURCE, AnswerStatus.UNSOURCED))
 
 
 def parser(description: str) -> argparse.ArgumentParser:
@@ -86,12 +94,18 @@ class Experiment:
         answerable = [e for e in snapshot.entries if by_id[e.question_id].answerable]
         unanswerable = [e for e in snapshot.entries if not by_id[e.question_id].answerable]
         with_expected = [e for e in answerable if by_id[e.question_id].expected_documents]
+        coverages = [keyword_coverage(e.text, by_id[e.question_id].expected_keywords)
+                     for e in answerable if e.status == ANSWERED]
+        coverages = [c for c in coverages if c is not None]
         return {
-            "répond (répondables)": _rate([e.status == "answered" for e in answerable]),
+            "répond (répondables)": _rate([e.status == ANSWERED for e in answerable]),
             "bonne source": _rate([bool(set(e.cited_documents) & set(by_id[e.question_id].expected_documents))
-                                   for e in with_expected if e.status == "answered"]),
-            "refus justes (hors corpus)": _rate([e.status == "no_relevant_source" for e in unanswerable]),
-            "non sourcé": _rate([e.status == "unsourced" for e in snapshot.entries]),
+                                   for e in with_expected if e.status == ANSWERED]),
+            # Mesure (grossière) du contenu : le taux de dérive seul ne distingue pas une reformulation
+            # d'une réponse inversée.
+            "mots-clés (réponses données)": round(sum(coverages) / len(coverages), 2) if coverages else None,
+            "refus justes (sans réponse accessible)": _rate([e.status == NO_RELEVANT_SOURCE for e in unanswerable]),
+            "non sourcé": _rate([e.status == UNSOURCED for e in snapshot.entries]),
             "fuites d'accès": float(sum(bool(set(e.cited_documents) & set(by_id[e.question_id].forbidden_documents))
                                         for e in snapshot.entries)),
         }
@@ -138,9 +152,9 @@ def drift_summary(comparison: SnapshotComparison) -> dict[str, Any]:
         "questions comparées": comparison.compared,
         "réponses modifiées": comparison.changed,
         "taux de dérive": comparison.drift_rate,
-        "changements de statut": comparison.count("statut modifié"),
-        "changements de sources": comparison.count("sources modifiées"),
-        "reformulations": comparison.count("texte modifié"),
+        "changements de statut": comparison.count(STATUS_CHANGED),
+        "changements de sources": comparison.count(SOURCES_CHANGED),
+        "textes modifiés (à relire)": comparison.count(TEXT_CHANGED),
     }
 
 
@@ -156,4 +170,4 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
-__all__ = ["Experiment", "IDENTICAL", "MISSING", "drift_summary", "parser"]
+__all__ = ["Experiment", "IDENTICAL", "MISSING", "STATUS_CHANGED", "drift_summary", "parser"]

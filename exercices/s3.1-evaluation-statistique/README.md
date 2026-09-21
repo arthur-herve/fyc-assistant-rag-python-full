@@ -73,7 +73,8 @@ d'essai et `tools/experiences/stabilite.py` sont du second.
 
 ## Pour aller plus loin
 
-Relancer `python tools/experiences/stabilite.py --runs 3` avec un vrai modèle : la dérive mesurée
+Relancer `python tools/experiences/stabilite.py --config config/app-ollama.toml --questions eval/questions-service-public.json --runs 3`
+avec un vrai modèle : la dérive mesurée
 à configuration constante est le non-déterminisme réel, celui que la tolérance d'un test
 statistique doit absorber. Puis avec `--seed 42` : que devient-elle, et pourquoi ce n'est pas
 une garantie ?
