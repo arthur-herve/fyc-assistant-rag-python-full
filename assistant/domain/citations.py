@@ -10,8 +10,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Accepte [1], [2, 3] et [2,3] ; chiffres latins seulement (« [١] » n'est pas une citation,
-# comme dans la version C#).
+# Accepte [1], [2, 3] et [2,3] ; chiffres latins seulement, ceux qui numérotent les passages du prompt :
+# \d reconnaîtrait aussi « [١] » (chiffre arabe), que int() lit 1.
 _CITATION = re.compile(r"\[([0-9]+(?:\s*,\s*[0-9]+)*)\]")
 
 
@@ -29,7 +29,10 @@ def check_citations(text: str, passage_count: int) -> CitationCheck:
     numbers: list[int] = []
     for match in _CITATION.finditer(text):
         for part in match.group(1).split(","):
-            number = int(part)
+            try:
+                number = int(part)
+            except ValueError:   # des milliers de chiffres, que int() refuse de convertir : bien au-delà des passages
+                number = passage_count + 1
             if number not in numbers:
                 numbers.append(number)
     valid = tuple(n for n in numbers if 1 <= n <= passage_count)

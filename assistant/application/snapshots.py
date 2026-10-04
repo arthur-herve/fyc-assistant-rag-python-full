@@ -26,7 +26,9 @@ SNAPSHOT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")   # toujours avec
 
 class InvalidSnapshotNameError(ValueError):
     def __init__(self, name: str) -> None:
-        super().__init__(f"nom d'instantané invalide : {name!r} (lettres, chiffres, . _ - ; 64 caractères au plus)")
+        # Le nom refusé entre « », guillemets à la française, plutôt que sa forme Python ('--') : on voit où il
+        # commence et finit, même s'il contient des espaces.
+        super().__init__(f"nom d'instantané invalide : « {name} » (lettres, chiffres, . _ - ; 64 caractères au plus)")
 
 
 @dataclass(frozen=True)
@@ -144,3 +146,18 @@ def compare_snapshots(baseline: Snapshot, candidate: Snapshot) -> SnapshotCompar
             kind = IDENTICAL
         differences.append(EntryDifference(question_id, kind, a, b))
     return SnapshotComparison(baseline.name, candidate.name, config_diff, tuple(differences))
+
+
+def config_value_to_text(value: Any) -> str:
+    """Une valeur de configuration (instantané, découpage), lisible : null, true et false plutôt que None, True et
+    False, listes et dictionnaires sans guillemets, clés triées ; un nombre tel que Python l'écrit (0.0, 1e-05).
+    Rangée avec les cas d'usage : `status` s'en sert pour nommer un découpage modifié."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{k}={config_value_to_text(v)}" for k, v in sorted(value.items())) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(config_value_to_text(v) for v in value) + "]"
+    return str(value)

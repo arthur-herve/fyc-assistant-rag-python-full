@@ -39,10 +39,36 @@ class CitationsTest(unittest.TestCase):
     def test_duplicates_are_counted_once(self):
         self.assertEqual(check_citations("[2] puis [2,1]", 2).cited, (2, 1))
 
+    def test_a_huge_citation_number_is_invalid_not_an_exception(self):
+        # Des milliers de chiffres, que int() refuse de convertir : une citation invalide, sans exception.
+        check = check_citations("Deux jours [1], voir [" + "9" * 5000 + "].", passage_count=2)
+        self.assertEqual(check.cited, (1,))
+        self.assertEqual(len(check.invalid), 1)
+        self.assertFalse(check.is_valid)
 
-class CitationParityTest(unittest.TestCase):
+
+class UnusualCitationsTest(unittest.TestCase):
+    # (sortie du modèle, citations valides, citations invalides) pour 2 passages.
+    UNUSUAL = [
+        ("[1,\xa02]", (1, 2), ()),           # espace insécable, U+2028, \x85 : des blancs pour \s
+        ("[1,\u20282]", (1, 2), ()),
+        ("[1\x85, 2]", (1, 2), ()),
+        ("[33612345678] puis [44612345678]", (), (33612345678, 44612345678)),   # trop grands : tels quels
+        ("[00000000002]", (2,), ()),
+        ("[1, 00000000002]", (1, 2), ()),   # un blanc puis onze chiffres : rogné, puis lu comme 2
+        ("[0]", (), (0,)),
+        ("[\u0661]", (), ()),
+    ]
+
+    def test_unusual_outputs_give_citations_without_an_exception(self):
+        """Jamais d'exception : une ValueError ici faisait échouer la question (500 avec serve)."""
+        for text, cited, invalid in self.UNUSUAL:
+            with self.subTest(text=text[:40]):
+                check = check_citations(text, 2)
+                self.assertEqual((check.cited, check.invalid), (cited, invalid))
+
     def test_only_latin_digits_count_as_a_citation(self):
-        """« [١] » (chiffre arabe) n'est pas une citation, comme dans la version C#."""
+        """« [١] » (chiffre arabe) n'est pas une citation : les passages sont numérotés en chiffres latins."""
         self.assertFalse(check_citations("Deux jours [\u0661].", 1).is_valid)
         self.assertTrue(check_citations("Deux jours [1].", 1).is_valid)
 

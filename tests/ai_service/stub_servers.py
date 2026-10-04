@@ -1,9 +1,13 @@
-"""Faux serveurs Ollama et « compatible OpenAI » : vérifient le format des requêtes."""
+"""Faux serveurs Ollama et « compatible OpenAI » : vérifient le format des requêtes.
+
+Une route renvoie (statut, objet JSON), ou des octets bruts : une réponse HTTP coupée en plein
+corps, ou qui n'est pas du HTTP du tout. silent_after : un moteur qui se tait au milieu de sa réponse."""
 
 from __future__ import annotations
 
 import json
 import threading
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -18,7 +22,11 @@ class StubServer:
                 body = json.loads(self.rfile.read(length)) if length else None
                 stub.requests.append((method, self.path, body))
                 route = routes.get((method, self.path))
-                status, payload = route(body) if route else (404, {"error": "not found"})
+                answer = route(body) if route else (404, {"error": "not found"})
+                if isinstance(answer, bytes):
+                    self.wfile.write(answer)
+                    return
+                status, payload = answer
                 data = json.dumps(payload).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
@@ -49,6 +57,32 @@ class StubServer:
     def __exit__(self, *exc):
         self.server.shutdown()
         self.server.server_close()
+
+
+@contextmanager
+def silent_after(start: bytes, cut: bool = False):
+    """Un faux moteur qui lit la requête, envoie `start` (ses en-têtes et un début de corps), puis se tait,
+    connexion ouverte, jusqu'à ce que le client abandonne ; ou coupe la connexion (cut). Renvoie son adresse."""
+    class Silent(BaseHTTPRequestHandler):
+        timeout = 10   # au pire, le faux moteur abandonne lui-même
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            self.wfile.write(start)
+            if not cut:
+                self.rfile.read()   # se tait, jusqu'à ce que le client ferme
+            self.close_connection = True
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Silent)
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 OLLAMA_MODELS = [   # comme /api/tags : `name` et `model` valent le nom court canonique

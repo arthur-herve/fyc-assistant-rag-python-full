@@ -1,15 +1,20 @@
-"""Présentation des résultats des cas d'usage (JSON pour l'API, texte pour le terminal)."""
+"""Présentation des résultats des cas d'usage (JSON pour l'API, texte pour le terminal).
+
+Un texte qui se lit : null et true plutôt que None et True, listes sans guillemets, clés du
+découpage triées, scores à quatre décimales, « 33 % ».
+"""
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from typing import Any
 
 from assistant.application.ports import IndexManifest
 from assistant.application.snapshots import (
-    IDENTICAL, MISSING, SOURCES_CHANGED, STATUS_CHANGED, TEXT_CHANGED, SnapshotComparison,
+    IDENTICAL, MISSING, SOURCES_CHANGED, STATUS_CHANGED, TEXT_CHANGED, SnapshotComparison, config_value_to_text,
 )
-from assistant.application.status import StatusReport
+from assistant.application.status import StatusReport, describe_splitter
 from assistant.domain.model import Answer
 
 
@@ -40,15 +45,17 @@ def answer_to_text(answer: Answer, verbose: bool = False) -> str:
         f"index={t.index_id} · tentatives={t.attempts}"
     )
     if verbose:
-        lines.append(f"seuil={t.min_score}")
-        lines += [f"  retrouvé {chunk} score={score}" for chunk, score in t.retrieved]
+        lines.append(f"seuil={round(t.min_score, 4)}")
+        lines += [f"  retrouvé {chunk} score={round(score, 4)}" for chunk, score in t.retrieved]
         for i, raw in enumerate(t.raw_outputs, start=1):
-            lines.append(f"  sortie brute {i} : {raw!r}")
+            # Entre guillemets, sauts de ligne échappés : la sortie exacte du modèle, sur une ligne.
+            lines.append(f"  sortie brute {i} : {json.dumps(raw, ensure_ascii=False)}")
     return "\n".join(lines)
 
 
 def manifest_to_dict(manifest: IndexManifest) -> dict[str, Any]:
-    return asdict(manifest)
+    # Clés du découpage triées : la même sortie, quel que soit l'ordre des clés dans le fichier d'index.
+    return {**asdict(manifest), "splitter": dict(sorted(manifest.splitter.items()))}
 
 
 def status_to_dict(report: StatusReport) -> dict[str, Any]:
@@ -58,7 +65,7 @@ def status_to_dict(report: StatusReport) -> dict[str, Any]:
         "issues": list(report.issues),
         "index": manifest_to_dict(report.index) if report.index else None,
         "corpus": {"documents": report.corpus_documents, "fingerprint": report.corpus_fingerprint},
-        "splitter": report.splitter,
+        "splitter": dict(sorted(report.splitter.items())),
         "ai_service": {"embedding_model": report.embedding_model,
                        "dimension": report.embedding_dimension, "error": report.ai_service_error},
         "prompt_version": report.prompt_version,
@@ -74,10 +81,10 @@ def status_to_text(report: StatusReport) -> str:
         lines.append(f"Index      : {m.index_id} · {m.chunk_count} morceaux de {m.document_count} documents "
                      f"· construit le {m.created_at}")
         lines.append(f"             modèle d'embeddings {m.embedding_model} ({m.dimension} dim.) "
-                     f"· découpage {m.splitter}")
+                     f"· découpage {describe_splitter(m.splitter)}")
         lines.append(f"             empreinte du corpus {m.corpus_fingerprint[:12]}…")
     lines.append(f"Corpus     : {report.corpus_documents} documents · empreinte {report.corpus_fingerprint[:12]}…")
-    lines.append(f"Découpage  : {report.splitter}")
+    lines.append(f"Découpage  : {describe_splitter(report.splitter)}")
     if report.ai_service_error:
         lines.append(f"Service IA : en erreur ({report.ai_service_error})")
     else:
@@ -99,7 +106,7 @@ def comparison_to_text(comparison: SnapshotComparison, show_changes: bool = True
     lines = [f"Comparaison : {comparison.baseline} → {comparison.candidate}", ""]
     lines.append("Différences de configuration")
     if comparison.configuration_differences:
-        lines += [f"  - {key} : {before} → {after}"
+        lines += [f"  - {key} : {config_value_to_text(before)} → {config_value_to_text(after)}"
                   for key, before, after in comparison.configuration_differences]
     else:
         lines.append("  (aucune : même configuration des deux côtés)")
@@ -107,7 +114,7 @@ def comparison_to_text(comparison: SnapshotComparison, show_changes: bool = True
               f"  questions comparées : {comparison.compared}",
               f"  réponses modifiées  : {comparison.changed}",
               f"  taux de dérive      : "
-              + ("—" if comparison.drift_rate is None else f"{comparison.drift_rate:.0%}"),
+              + ("—" if comparison.drift_rate is None else f"{comparison.drift_rate * 100:.0f} %"),
               ""]
     lines.append("| Nature | Nombre | Lecture |")
     lines.append("|---|---|---|")
@@ -126,8 +133,8 @@ def comparison_to_text(comparison: SnapshotComparison, show_changes: bool = True
             lines.append("")
             for d in changes:
                 lines.append(f"{d.question_id} [{d.kind}]")
-                lines.append(f"  avant : {d.before.status} {list(d.before.cited_documents)} "
+                lines.append(f"  avant : {d.before.status} [{', '.join(d.before.cited_documents)}] "
                              f"« {d.before.text[:90]} »")
-                lines.append(f"  après : {d.after.status} {list(d.after.cited_documents)} "
+                lines.append(f"  après : {d.after.status} [{', '.join(d.after.cited_documents)}] "
                              f"« {d.after.text[:90]} »")
     return "\n".join(lines)

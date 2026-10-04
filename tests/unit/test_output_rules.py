@@ -43,6 +43,55 @@ class OutputRulesTest(unittest.TestCase):
         check = check_output("Le salarié a droit à des congés. " * 60, max_chars=500)
         self.assertTrue(any("trop longue" in p for p in check.problems))
 
+    def test_the_length_is_counted_in_code_points(self):
+        """Un emoji compte pour un caractère, comme dans len(). Une moitié de paire isolée compte pour un caractère.
+        Ce sont des points de code, pas des caractères perçus (graphèmes) : un « é » décomposé ou un drapeau en
+        comptent deux. Et c'est la longueur de la réponse rognée."""
+        def too_long(length):
+            return (f"réponse trop longue ({length} caractères, 500 au plus)",)
+
+        cases = [
+            ("\U0001F600" * 500, ()),   # 1 000 unités UTF-16
+            ("\U0001F600" * 501, too_long(501)),
+            ("\ud800" * 501, too_long(501)),
+            ("\udc00" * 501, too_long(501)),
+            ("e\u0301" * 251, too_long(502)),   # « é » décomposé : 251 graphèmes, 502 points de code
+            ("\U0001F1EB\U0001F1F7" * 251, too_long(502)),   # drapeau : 251 graphèmes, 502 points de code
+            ("  " + "a" * 500 + "\n", ()),   # 503 avant rognage, 500 après
+        ]
+        for text, problems in cases:
+            with self.subTest(character=f"U+{ord(text[0]):04X}", length=len(text)):
+                self.assertEqual(check_output(text, max_chars=500).problems, problems)
+
+    def test_the_blanks_are_those_of_dotnet(self):
+        """Le rognage et les marqueurs de raisonnement voient les blancs d'Unicode (blanks.py), ceux de
+        char.IsWhiteSpace en .NET, d'où le nom du test. str.strip() et le \\s de Python y ajoutent les séparateurs
+        \\x1c à \\x1f, qui n'en sont pas ici."""
+        def reasoning(found):
+            return (f"raisonnement du modèle déversé dans la réponse (« {found} »)",)
+
+        too_long = ("réponse trop longue (1501 caractères, 1500 au plus)",)
+        separators = "\x1c\x1d\x1e\x1f"
+        # Tous dans le plan de base (U+0000 à U+FFFF) : le parcourir suffit.
+        blanks = {chr(c) for c in range(0x110000) if chr(c).isspace()} - set(separators)
+        plane = [chr(c) for c in range(0x10000)]
+        # Rognés, ou entre « ok, » et « let » : ces blancs, ni plus ni moins (pas U+200B, par exemple).
+        self.assertEqual({c for c in plane if check_output(c * 3).problems == ("réponse vide",)}, blanks)
+        self.assertEqual({c for c in plane if check_output(f"ok,{c}let").problems}, blanks)
+        for blank in sorted(blanks):
+            with self.subTest(blank=f"U+{ord(blank):04X}"):
+                self.assertEqual(check_output(blank + "a" * 1500 + blank).problems, ())
+                self.assertEqual(check_output(f"ok,{blank}let").problems, reasoning(f"ok,{blank}let"))
+                self.assertEqual(check_output(f"first,{blank}i need").problems, reasoning(f"first,{blank}i need"))
+                self.assertEqual(check_output(f"wait,{blank}x").problems, reasoning("wait,"))
+        for separator in separators:   # des blancs pour str.isspace(), pas pour cette règle
+            with self.subTest(separator=f"U+{ord(separator):04X}"):
+                self.assertEqual(check_output(separator * 3).problems, ())
+                self.assertEqual(check_output(separator + "a" * 1500).problems, too_long)
+                self.assertEqual(check_output("a" * 1500 + separator).problems, too_long)
+                for text in (f"ok,{separator}let", f"first,{separator}i need", f"wait,{separator}x"):
+                    self.assertEqual(check_output(text).problems, ())
+
     def test_think_tags_are_rejected(self):
         self.assertFalse(check_output("<think>je réfléchis</think> Deux jours [1].").is_valid)
 

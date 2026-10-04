@@ -38,9 +38,9 @@ class SearchPassages:
         l'utilisateur peut lire. Les droits sont filtrés ici, avant tout prompt.
 
         L'index peut être reconstruit par un autre processus entre la vérification et la
-        recherche (`serve` relit le fichier quand il change) : on vérifie après coup que
-        l'index interrogé est bien celui qu'on a contrôlé, sinon on recommence une fois
-        (y compris quand la recherche échoue parce que le nouvel index a une autre dimension)."""
+        recherche (`serve` relit le fichier quand il change) : la recherche ne porte que sur
+        l'index contrôlé (`index_id`), et l'index lève `IndexReplacedError` s'il a été remplacé
+        entre-temps, même par un index d'une autre dimension. On recommence alors une fois."""
         for _ in range(2):
             manifest = self._index.manifest()
             if manifest is None:
@@ -54,16 +54,10 @@ class SearchPassages:
 
             try:
                 passages = self._index.search(
-                    query.vectors[0], top_k, predicate=lambda chunk: self._access.can_read(user, chunk)
+                    query.vectors[0], top_k, predicate=lambda chunk: self._access.can_read(user, chunk),
+                    index_id=manifest.index_id,
                 )
-            except ValueError:
-                if self._unchanged(manifest):
-                    raise   # même index : une vraie erreur
+            except IndexReplacedError:
                 continue
-            if self._unchanged(manifest):
-                return Retrieval(manifest, passages)
+            return Retrieval(manifest, passages)
         raise IndexReplacedError()
-
-    def _unchanged(self, manifest: IndexManifest) -> bool:
-        current = self._index.manifest()
-        return current is not None and current.index_id == manifest.index_id

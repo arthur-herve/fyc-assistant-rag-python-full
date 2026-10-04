@@ -21,3 +21,18 @@ Chaque dossier contient le rapport brut produit par l'outil (`rapport.md`, plus 
 Reproduire : les commandes sont en tête de chaque rapport et dans le README du dépôt (sections
 « banc d'essai » et « expériences reproductibles »). Les chiffres changeront avec la machine, la
 version d'Ollama, les poids des modèles et la date du corpus : c'est le sujet du cours.
+
+Les rapports ci-dessus gardent leur forme d'origine ; ceux que produit aujourd'hui le dépôt ne s'y
+comparent pas ligne à ligne. Correspondance des intitulés :
+
+- « reformulations » (dérive des expériences) s'appelle « textes modifiés (à relire) », et la
+  comparaison d'instantanés ne lit plus un texte modifié comme « reformulation, la dérive la plus
+  bénigne » mais « à relire, le sens a pu changer (Oui devenu Non…) » ;
+- « refus justes (hors corpus) » s'appelle « refus justes (sans réponse accessible) » : hors corpus
+  ou accès refusé (banc et expériences) ;
+- les indicateurs des expériences ont une ligne de plus, « mots-clés (réponses données) » ;
+- au banc, « Latence médiane (ms) » devient « Latence médiane des réponses générées (ms) » : la
+  médiane et le p90 ne comptent plus les refus sans appel au modèle, quasi immédiats, et ne se
+  comparent donc pas aux chiffres ci-dessus ;
+- depuis le 01/10/2026, les comparaisons d'instantanés écrivent les taux « 33 % », à la française, et
+  les listes « [a, b] », sans les guillemets de Python (ci-dessus : « 79% », « ['F18260'] »).

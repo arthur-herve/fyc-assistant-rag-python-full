@@ -1,7 +1,11 @@
 """Bout en bout, en HTTP réel : application ↔ service IA, en mode hors-ligne."""
 
+import contextlib
 import csv
+import io
 import json
+import re
+import sys
 import tempfile
 import threading
 import unittest
@@ -10,16 +14,24 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 from ai_service.registry import ModelRegistry
 from ai_service.server import create_server as create_ai_server
 from assistant.application.errors import IndexModelMismatchError
 from assistant.composition import AppConfig, build
 from assistant.domain.model import AnswerStatus
-from assistant.interface.benchmark import load_questions, run_benchmark
+from assistant.interface.benchmark import EvalQuestion, load_questions, run_benchmark
 from assistant.interface.http_api import create_server as create_app_server
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools" / "experiences"))
+
+import _commun  # noqa: E402
+import cace_decoupage  # noqa: E402
+import changement_embeddings  # noqa: E402
+import changement_generateur  # noqa: E402
+import stabilite  # noqa: E402
 AI_CONFIG = {
     "embedding": {"hashing": {"backend": "hashing", "dimension": 256},
                   "hashing-512": {"backend": "hashing", "dimension": 512}},
@@ -65,6 +77,7 @@ groups = ["tous"]
 [users.bruno]
 groups = ["tous", "rh"]
 """, encoding="utf-8")
+        cls.config_path = config_path
         cls.config = AppConfig.load(config_path)
         cls.container = build(cls.config)
         cls.manifest = cls.container.index_corpus.execute()
@@ -116,18 +129,196 @@ groups = ["tous", "rh"]
         questions = [q for q in load_questions(ROOT / "eval" / "questions.json")
                      if q.user in ("alice", "bruno")][:6]
         out = Path(self.tmp.name) / "banc"
-        run_benchmark(self.config, ["hashing"], ["extractive"], questions, runs=1, out_dir=out,
-                      log=lambda *_: None)
+        written = []
+
+        def log(message):
+            if "passage 1/1 terminé" in message:
+                # Chaque ligne est sur le disque dès qu'elle est connue, pas en fin de campagne.
+                with open(out / "resultats.csv", encoding="utf-8", newline="") as handle:
+                    written.append(len(list(csv.DictReader(handle))))
+
+        summary = run_benchmark(self.config, ["hashing"], ["extractive"], questions, runs=1, out_dir=out,
+                                validation=questions[:2], log=log)
+        self.assertEqual(written, [len(questions)])
         with open(out / "resultats.csv", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
         self.assertEqual([r["question_id"] for r in rows], [q.id for q in questions])
         self.assertEqual({r["generation_model_id"] for r in rows if r["status"] == "answered"}, {"extractive"})
         self.assertTrue((out / "rapport.md").is_file())
+        self.assertEqual(json.loads((out / "synthese.json").read_text(encoding="utf-8")), summary.to_json())
+        self.assertEqual(summary.retrieval[0].validation.questions, 2)
         # Une option fausse est refusée avant tout travail : pas de dossier de résultats à moitié rempli.
         with self.assertRaises(ValueError):
             run_benchmark(self.config, ["hashing"], ["extractive"], questions, runs=1,
                           out_dir=Path(self.tmp.name) / "jamais", min_score_mode="abc", log=lambda *_: None)
         self.assertFalse((Path(self.tmp.name) / "jamais").exists())
+
+    def test_the_benchmark_searches_with_the_rights_of_each_question(self):
+        """La recherche du banc passe par SearchPassages (droits, contrôle du modèle), pas par l'index directement."""
+        question = "Quelle est la fourchette de salaire d'un consultant senior ?"
+        # Même question, même attente : seul bruno a le droit de lire la grille des salaires.
+        questions = [EvalQuestion("rh", question, "bruno", True, ("grille-salaires",), (), ()),
+                     EvalQuestion("sans-droit", question, "alice", True, ("grille-salaires",), (), ())]
+        summary = run_benchmark(self.config, ["hashing"], ["extractive"], questions, runs=1,
+                                out_dir=Path(self.tmp.name) / "banc-droits", log=lambda *_: None)
+        self.assertEqual((summary.retrieval[0].hit_at_1, summary.retrieval[0].hit_at_k), (0.5, 0.5))
+        self.assertEqual(summary.generation[0].forbidden_leaks, 0)
+
+    def test_the_benchmark_says_when_the_default_threshold_applies(self):
+        questions = load_questions(ROOT / "eval" / "questions.json")[:2]
+        out, lines = Path(self.tmp.name) / "banc-default", []
+        summary = run_benchmark(self.config, ["hashing"], ["extractive"], questions, runs=1, out_dir=out,
+                                log=lines.append)
+        self.assertTrue(summary.retrieval[0].configured_threshold_is_default)   # [retrieval.min_score] : `default` seul
+        self.assertIn("seuil configuré=0.15 (default : aucun seuil pour cet alias)", "\n".join(lines))
+        self.assertIn("| 0.15 (default) |", (out / "rapport.md").read_text(encoding="utf-8"))
+
+        out = Path(self.tmp.name) / "banc-calibre"
+        summary = run_benchmark(replace(self.config, min_scores={"hashing": 0.15}), ["hashing"], ["extractive"],
+                                questions, runs=1, out_dir=out, log=lambda *_: None)
+        self.assertFalse(summary.retrieval[0].configured_threshold_is_default)
+        self.assertNotIn("(default)", (out / "rapport.md").read_text(encoding="utf-8"))
+
+    def test_the_benchmark_logs_its_thresholds_and_report_path_and_writes_lf_only(self):
+        """Fins de ligne \\n (Windows compris), chemin du rapport avec des « / » ; le journal donne le seuil
+        configuré (0) et le seuil imposé (1), y compris pour la validation."""
+        questions = load_questions(ROOT / "eval" / "questions.json")[:2]
+        out, lines = Path(self.tmp.name) / "banc-octets", []
+        run_benchmark(replace(self.config, min_scores={"hashing": 0.0}), ["hashing"], ["extractive"], questions,
+                      runs=1, out_dir=out, min_score_mode="1", validation=questions[:1], log=lines.append)
+        log = "\n".join(lines)
+        self.assertEqual(float(re.search(r" · seuil configuré=(\S+) · ", log).group(1)), 0)
+        self.assertEqual(float(re.search(r" · seuil utilisé=(\S+)\n", log).group(1)), 1)
+        self.assertEqual(float(re.search(r"\(1 questions jamais vues, seuil (\S+)\) :", log).group(1)), 1)
+        self.assertEqual(lines[-1], f"\nRapport : {(out / 'rapport.md').as_posix()}")
+        for name in ("rapport.md", "synthese.json"):
+            with self.subTest(name):
+                self.assertNotIn(b"\r", (out / name).read_bytes())
+
+    def test_two_benchmarks_of_the_same_second_keep_their_own_folder(self):
+        """Sans --out, le dossier est daté à la seconde : un second banc lancé dans la même seconde écrivait dans le
+        même dossier, et son rapport remplaçait celui du premier, sans rien dire. Il reçoit « -2 » (new_out_dir), et
+        tous ses fichiers y vont. --out, lui, reste le dossier donné, même s'il existe déjà (la commande :
+        test_cli.py)."""
+        questions = load_questions(ROOT / "eval" / "questions.json")
+        base = Path(self.tmp.name) / "resultats" / "20261001-164152"
+        lines = []
+        for count in (1, 2):
+            run_benchmark(self.config, ["hashing"], ["extractive"], questions[:count], runs=1, out_dir=base,
+                          new_out_dir=True, log=lines.append)
+        second = base.with_name("20261001-164152-2")
+        self.assertEqual([line for line in lines if line.startswith("\nRapport : ")],
+                         [f"\nRapport : {(folder / 'rapport.md').as_posix()}" for folder in (base, second)])
+        for count, folder in ((1, base), (2, second)):
+            with self.subTest(folder=folder.name):
+                self.assertIn(f"\n{count} questions · ", (folder / "rapport.md").read_text(encoding="utf-8"))
+                self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                                 ["index-hashing.json", "rapport.md", "resultats.csv", "synthese.json"])
+        run_benchmark(self.config, ["hashing"], ["extractive"], questions[:3], runs=1, out_dir=base,
+                      log=lambda *_: None)
+        self.assertIn("\n3 questions · ", (base / "rapport.md").read_text(encoding="utf-8"))
+        self.assertFalse(base.with_name("20261001-164152-3").exists())
+
+    def test_the_benchmark_uses_the_prompt_it_is_given(self):
+        """--prompt (run_benchmark(prompt_name=…)) : le rapport nomme sa version."""
+        out = Path(self.tmp.name) / "banc-prompt"
+        run_benchmark(self.config, ["hashing"], ["extractive"], load_questions(ROOT / "eval" / "questions.json")[:1],
+                      runs=1, out_dir=out, prompt_name="answer-v2", log=lambda *_: None)
+        prompts = self.container.prompts
+        self.assertNotEqual(prompts.get("answer-v2").version, prompts.get("answer").version)
+        self.assertIn(f"prompt `{prompts.get('answer-v2').version}`", (out / "rapport.md").read_text(encoding="utf-8"))
+
+    def experiment(self, script, *options: str, config: Path | None = None) -> tuple[str | None, str, str]:
+        """Une expérience lancée comme dans un terminal : message de sortie (None si elle aboutit), sortie, erreurs.
+        Sans `config`, la configuration de la classe."""
+        argv = [f"{script.__name__}.py", "--config", str(config or self.config_path), "--questions",
+                str(ROOT / "eval" / "questions.json"), *options]
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with mock.patch.object(sys, "argv", argv), contextlib.redirect_stderr(stderr), \
+                contextlib.redirect_stdout(stdout):
+            try:
+                _commun.run(script.main)
+                stopped = None
+            except SystemExit as stop:
+                stopped = str(stop.code)
+        return stopped, stdout.getvalue(), stderr.getvalue()
+
+    def test_an_experiment_says_when_the_default_threshold_applies(self):
+        """Sans seuil configuré, le modèle principal et `--other` reçoivent `default` : l'expérience le dit
+        (console et rapport, ADR 0004). Rapport en \\n et chemin avec des « / », sous Windows aussi."""
+        out = Path(self.tmp.name) / "exp-embeddings"
+        stopped, stdout, stderr = self.experiment(changement_embeddings, "--limit", "2", "--other", "hashing-512",
+                                                  "--out", str(out))
+        self.assertIsNone(stopped)
+        warnings = [f"Attention : aucun seuil de pertinence configuré pour « {alias} » : valeur `default` 0.15 "
+                    "(ADR 0004 : lancer le banc d'essai)" for alias in ("hashing", "hashing-512")]
+        self.assertEqual(stderr.splitlines(), warnings)
+        report = (out / "rapport.md").read_text(encoding="utf-8")
+        for warning in warnings:
+            self.assertIn(f"> {warning}", report)
+        self.assertIn("| seuil | 0.15 | 0.15 |", report)
+        self.assertNotIn(b"\r", (out / "rapport.md").read_bytes())
+        self.assertTrue(stdout.endswith(f"\nRapport : {(out / 'rapport.md').as_posix()}\n"), stdout)
+
+    def test_the_other_alias_of_an_experiment_is_checked_before_any_index(self):
+        """--other doit être servi, et du bon type (GET /v1/models) : sinon, ni index ni instantané, et pas
+        d'avertissement avant l'erreur."""
+        out = Path(self.tmp.name) / "exp-autre"
+        cases = [
+            (changement_embeddings, "extractive", "modèle d'embeddings (servis : hashing, hashing-512)"),
+            (changement_embeddings, "nexiste", "modèle d'embeddings (servis : hashing, hashing-512)"),
+            (changement_generateur, "hashing", "modèle de génération (servis : extractive, extractive-bruite)"),
+        ]
+        for script, other, served in cases:
+            with self.subTest(script=script.__name__, other=other):
+                stopped, stdout, stderr = self.experiment(script, "--limit", "1", "--other", other, "--out", str(out))
+                self.assertEqual(stopped, f"Erreur : le service IA ne sert pas « {other} » comme {served}")
+                self.assertEqual((stdout, stderr), ("", ""))
+                self.assertFalse(out.exists())
+
+    def test_an_experiment_prints_its_steps_and_its_report_names_the_files_as_given(self):
+        """La console : « Avant : 800 / 120 » (taille / recouvrement, comme les colonnes du rapport), une ligne par
+        index et par instantané, « Rapport : » et son chemin. L'en-tête du rapport : les chemins tels qu'ils ont été
+        donnés, avec des « / ». Le corpus Solvéo donne 15 morceaux en 800 / 120, et 42 en 300 / 50."""
+        out = Path(self.tmp.name) / "exp-cace"
+        stopped, stdout, _ = self.experiment(cace_decoupage, "--limit", "1", "--out", str(out))
+        self.assertIsNone(stopped)
+        for line in ("Avant : 800 / 120\n", "Après : 300 / 50\n"):
+            self.assertIn(line, stdout)
+        for name, chunks in (("avant", 15), ("apres", 42)):
+            self.assertRegex(stdout, rf"  index « {name} » : {chunks} morceaux, hashing-256-stem6, 256 dim\., ")
+            self.assertRegex(stdout, rf"  instantané « {name} » : 1 réponses en ")
+        self.assertTrue(stdout.endswith(f"\nRapport : {(out / 'rapport.md').as_posix()}\n"), stdout)
+        self.assertIn(f"\nConfiguration `{self.config_path.as_posix()}` · 1 questions de "
+                      f"`{(ROOT / 'eval' / 'questions.json').as_posix()}` · corpus `solveo`.\n",
+                      (out / "rapport.md").read_text(encoding="utf-8"))
+
+    def test_stability_writes_its_mean_drift(self):
+        out = Path(self.tmp.name) / "exp-stabilite"
+        stopped, _, _ = self.experiment(stabilite, "--limit", "2", "--runs", "2", "--out", str(out))
+        self.assertIsNone(stopped)
+        # Générateur déterministe : aucune dérive.
+        found = re.search(r"\*\*Dérive moyenne à configuration constante : (\S+)\*\* \(0 changement\(s\) de statut "
+                          r"sur 1 comparaison\(s\)\)\.", (out / "rapport.md").read_text(encoding="utf-8"))
+        self.assertIsNotNone(found)
+        self.assertEqual(float(found.group(1)), 0)
+
+    def test_two_experiments_of_the_same_second_keep_their_own_folder(self):
+        """Sans --out, comme le banc : le second dossier reçoit « -2 », et ses index et instantanés le suivent (ils
+        étaient écrits dans le dossier du premier). --out, lui, reste le dossier donné, même s'il existe déjà."""
+        base = Path(self.tmp.name) / "resultats-exp"
+        with mock.patch.object(_commun, "results_dir", lambda prefix, now: base / f"{prefix}20261001-164152"):
+            outputs = [self.experiment(stabilite, "--limit", "1", "--runs", "2") for _ in range(2)]
+        folders = [base / "exp-stabilite-20261001-164152", base / "exp-stabilite-20261001-164152-2"]
+        outputs.append(self.experiment(stabilite, "--limit", "1", "--runs", "2", "--out", str(folders[0])))
+        for number, ((stopped, stdout, _), folder) in enumerate(zip(outputs, [*folders, folders[0]]), 1):
+            with self.subTest(run=number, folder=folder.name):
+                self.assertIsNone(stopped)
+                self.assertTrue(stdout.endswith(f"\nRapport : {(folder / 'rapport.md').as_posix()}\n"), stdout)
+                self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                                 ["index-partage.json", "instantanes", "rapport.md"])
+                self.assertEqual(len(list((folder / "instantanes").iterdir())), 2)
+        self.assertFalse((base / "exp-stabilite-20261001-164152-3").exists())
 
     def test_status_is_up_to_date_after_indexing(self):
         report = self.container.check_status.execute()

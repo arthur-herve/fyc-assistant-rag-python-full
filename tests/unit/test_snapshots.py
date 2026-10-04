@@ -52,11 +52,20 @@ class RecordSnapshotTest(unittest.TestCase):
 
 
     def test_invalid_name_is_refused_before_any_question_is_asked(self):
-        generator = ScriptedGenerator("Deux jours [1].")
-        ask = AskQuestion(KeywordEmbedder(), FakeIndex(), generator, StaticPrompts())
-        with self.assertRaises(InvalidSnapshotNameError):
-            RecordSnapshot(ask, MemorySnapshotStore(), FixedClock(), {}).execute("../evil", QUESTIONS)
-        self.assertEqual(generator.requests, [])
+        # « ref\n » et 65 caractères commencent bien : seul un motif vérifié en entier (fullmatch) les refuse.
+        for name in ("../evil", "ref\n", "a" * 65):
+            with self.subTest(name=name):
+                generator = ScriptedGenerator("Deux jours [1].")
+                ask = AskQuestion(KeywordEmbedder(), FakeIndex(), generator, StaticPrompts())
+                with self.assertRaises(InvalidSnapshotNameError):
+                    RecordSnapshot(ask, MemorySnapshotStore(), FixedClock(), {}).execute(name, QUESTIONS)
+                self.assertEqual(generator.requests, [])
+
+    def test_an_invalid_name_is_quoted_between_guillemets(self):
+        # Entre « », guillemets à la française, plutôt que sous sa forme Python ('a b') : on voit où le nom
+        # commence et finit, espace comprise.
+        self.assertEqual(str(InvalidSnapshotNameError("a b")),
+                         "nom d'instantané invalide : « a b » (lettres, chiffres, . _ - ; 64 caractères au plus)")
 
     def test_a_systematic_error_is_raised_not_recorded(self):
         ask = AskQuestion(KeywordEmbedder(), FakeIndex(), ScriptedGenerator("x"), StaticPrompts())
@@ -85,7 +94,7 @@ class CompareSnapshotsTest(unittest.TestCase):
         self.assertEqual(comparison.count(IDENTICAL), 1)      # le refus, inchangé
         self.assertEqual(comparison.drift_rate, round(2 / 3, 3))
 
-    def test_a_refusal_that_becomes_an_answer_is_the_gravest_kind(self):
+    def test_a_refusal_that_becomes_an_answer_is_a_status_change(self):
         a, _ = record("a", ScriptedGenerator("Deux jours [1]."), min_score=0.5)
         b, _ = record("b", ScriptedGenerator("Deux jours [1]."), min_score=0.0)
         comparison = compare_snapshots(a, b)

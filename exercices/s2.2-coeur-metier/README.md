@@ -19,7 +19,7 @@ depart/
     ask_question.py   le cas d'usage central : répondre à une question                        — À ÉCRIRE
   fakes.py            des doubles pour chaque port : embeddings « par mots-clés », générateur
                       scripté, index en mémoire, corpus en liste, prompts fixes               — fourni
-  tests/              18 tests qui décrivent le comportement attendu                           — fournis
+  tests/              19 tests qui décrivent le comportement attendu                           — fournis
 ```
 
 Lancer les tests depuis `depart/` :
@@ -28,7 +28,7 @@ Lancer les tests depuis `depart/` :
 python -m unittest discover -s tests -t .
 ```
 
-Au départ, 18 tests échouent sur `NotImplementedError`. À la fin, tout est vert — **sans avoir
+Au départ, 19 tests échouent sur `NotImplementedError`. À la fin, tout est vert — **sans avoir
 appelé un seul modèle**.
 
 ## Ce qu'on vous demande
@@ -36,8 +36,9 @@ appelé un seul modèle**.
 1. `coeur/access.py` — `AccessPolicy.can_read` : un morceau marqué `tous` est lisible par tout le
    monde ; sinon il faut un groupe en commun. Tests : `tests/test_domain.py::AccessPolicyTest`.
 2. `coeur/citations.py` — `check_citations(text, passage_count)` : reconnaît `[1]`, `[2, 3]`,
-   `[2,3]` ; renvoie les numéros valides sans doublon et les numéros invalides.
-   Tests : `tests/test_domain.py::CitationsTest`.
+   `[2,3]` ; renvoie les numéros valides sans doublon et les numéros invalides ; un nombre trop
+   grand (des milliers de chiffres, que `int()` refuse de convertir) est une citation invalide,
+   pas une exception. Tests : `tests/test_domain.py::CitationsTest`.
 3. `coeur/ask_question.py` — `format_passages` puis `AskQuestion.execute`, en suivant le déroulé
    décrit dans le fichier (question vide → index absent → modèle incompatible → recherche filtrée
    par les droits → seuil → prompt → tentatives → réponse sourcée ou refus).
@@ -59,7 +60,7 @@ Ordre conseillé : 1, 2, puis 3 en faisant passer les tests un par un, dans l'or
 ## Corrigé
 
 `solution/` contient les trois fichiers. Copiez-les dans `depart/coeur/` pour vérifier :
-18 tests verts. Ils sont identiques, aux imports près, à `assistant/domain/access.py`,
+19 tests verts. Ils sont identiques, aux imports près, à `assistant/domain/access.py`,
 `assistant/domain/citations.py` et `assistant/application/ask_question.py` du dépôt (le fil rouge
 délègue en plus la recherche à un cas d'usage `SearchPassages`, réutilisé par le banc d'essai) :
 ce que vous venez d'écrire est **le cœur réel** de l'assistant fil rouge, celui qui tourne en

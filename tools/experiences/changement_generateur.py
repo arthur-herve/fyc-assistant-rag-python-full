@@ -9,7 +9,7 @@ réindexé. Et sa nuance : les réponses, la latence et les rejets changent.
 
 from __future__ import annotations
 
-from _commun import UNSOURCED, Experiment, drift_summary, parser
+from _commun import UNSOURCED, Experiment, drift_summary, parser, run
 
 
 def main() -> None:
@@ -17,6 +17,7 @@ def main() -> None:
     p.add_argument("--other", required=True, help="alias du second modèle de génération (ex. qwen3-4b)")
     args = p.parse_args()
     exp = Experiment("changement-generateur", args)
+    exp.start(generation=args.other)   # --other : un modèle de génération servi, vérifié avant tout index
     first = exp.config.generation_model
 
     container_a, manifest, _ = exp.index("partage")
@@ -62,4 +63,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run(main)

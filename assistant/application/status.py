@@ -18,6 +18,13 @@ from .index_corpus import corpus_fingerprint
 from .ports import (
     DocumentSource, Embedder, IndexManifest, PromptRepository, TextSplitter, VectorIndex,
 )
+from .snapshots import config_value_to_text
+
+
+def describe_splitter(splitter: dict[str, Any]) -> str:
+    """Le découpage, clés triées : {include_title: true, max_chars: 800, …}. Le même texte dans le
+    message « découpage modifié » et dans l'affichage de status."""
+    return "{" + ", ".join(f"{k}: {config_value_to_text(v)}" for k, v in sorted(splitter.items())) + "}"
 
 
 @dataclass(frozen=True)
@@ -86,7 +93,8 @@ class CheckStatus:
                 )
             if splitter != manifest.splitter:
                 issues.append(
-                    f"découpage modifié ({manifest.splitter} → {splitter}) : réindexer"
+                    f"découpage modifié ({describe_splitter(manifest.splitter)} → {describe_splitter(splitter)}) "
+                    f": réindexer"
                 )
             if model is not None and (model, dimension) != (manifest.embedding_model, manifest.dimension):
                 issues.append(

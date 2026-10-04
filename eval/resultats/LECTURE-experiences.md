@@ -23,7 +23,9 @@ change **une seule chose** ; les instantanés avant/après sont dans le dossier 
    79 % après avoir changé le prompt ne signifie pas « le prompt a tout changé », mais « le prompt
    a changé ce que le hasard ne changeait pas » — la longueur (338 → 52 caractères) et 3 statuts.
    Ce qu'un test statistique doit borner, ce sont les changements de **statut** et de **sources**,
-   pas les reformulations.
+   pas les reformulations (« textes modifiés » dans les rapports d'aujourd'hui). Elles se relisent
+   pourtant : un texte modifié peut changer le sens de la réponse (Oui devenu Non) sans changer ni
+   son statut ni ses sources.
 
 2. **Le prompt change la qualité, pas seulement la forme (S3.3).** `answer-v2` demande une phrase
    commençant par la valeur ou par Oui / Non. Résultat : « Non [4]. » pour le report des congés
@@ -76,7 +78,8 @@ change **une seule chose** ; les instantanés avant/après sont dans le dossier 
 ## Ce que ces expériences ne disent pas
 
 - Elles n'ont pas de vérité terrain complète : « bonne source » et « refus justes » sont calculés
-  sur les attendus du jeu de questions, « reformulation » ne juge pas le contenu.
+  sur les attendus du jeu de questions, « reformulation » ne juge pas le contenu : un texte modifié
+  se relit, son sens a pu changer.
 - Un seul passage par expérience (sauf `stabilite`) : un écart de quelques points entre deux
   colonnes est dans le bruit de la ligne de base.
 - Une seule machine, avec GPU ; les latences sur processeur seul ne sont pas mesurées.

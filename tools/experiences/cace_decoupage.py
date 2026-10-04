@@ -9,7 +9,7 @@ des morceaux — et pourtant il change les réponses, les scores et le seuil.
 
 from __future__ import annotations
 
-from _commun import Experiment, drift_summary, parser
+from _commun import Experiment, drift_summary, parser, run
 
 
 def main() -> None:
@@ -17,15 +17,19 @@ def main() -> None:
     p.add_argument("--max-chars", type=int, default=300, help="taille des morceaux « après » (défaut 300)")
     p.add_argument("--overlap-chars", type=int, default=50, help="recouvrement « après » (défaut 50)")
     args = p.parse_args()
-    exp = Experiment("cace-decoupage", args)
+    # Le découpage « après », vérifié avec les autres options : hors bornes, il est dit avant tout travail.
+    exp = Experiment("cace-decoupage", args, changes={"splitter_overrides": {
+        "max_chars": args.max_chars, "overlap_chars": args.overlap_chars}})
     before_splitter = exp.config.splitter
     after_splitter = {**before_splitter, "max_chars": args.max_chars, "overlap_chars": args.overlap_chars}
+    exp.start()
 
-    print("Avant :", before_splitter)
+    # Taille et recouvrement, comme les colonnes du rapport.
+    print(f"Avant : {before_splitter['max_chars']} / {before_splitter['overlap_chars']}")
     container_a, manifest_a, seconds_a = exp.index("avant")
     snapshot_a, _ = exp.record("avant", container_a)
 
-    print("Après :", after_splitter)
+    print(f"Après : {after_splitter['max_chars']} / {after_splitter['overlap_chars']}")
     container_b, manifest_b, seconds_b = exp.index("apres", splitter_overrides=after_splitter)
     snapshot_b, _ = exp.record("apres", container_b)
 
@@ -60,4 +64,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run(main)

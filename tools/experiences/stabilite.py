@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from _commun import STATUS_CHANGED, Experiment, drift_summary, parser
+from _commun import STATUS_CHANGED, Experiment, drift_summary, parser, run
 
 
 def main() -> None:
@@ -20,9 +20,8 @@ def main() -> None:
     p.add_argument("--runs", type=int, default=3, help="nombre de passages, au moins 2 (défaut 3)")
     p.add_argument("--seed", type=int, help="graine de génération (défaut : aucune)")
     args = p.parse_args()
-    if args.runs < 2:
-        raise SystemExit("--runs doit valoir au moins 2 : il faut deux passages pour mesurer une dérive")
-    exp = Experiment("stabilite", args)
+    exp = Experiment("stabilite", args, runs=args.runs)   # --runs vérifié avec les autres options
+    exp.start()
     if args.seed is not None:
         exp.config = replace(exp.config, seed=args.seed)
 
@@ -39,9 +38,9 @@ def main() -> None:
                    for i, snapshot in enumerate(snapshots[1:], start=2)}
     exp.table({label: drift_summary(comparison) for label, comparison in comparisons.items()})
     drifts = [c.drift_rate for c in comparisons.values() if c.drift_rate is not None]
-    mean_drift = round(sum(drifts) / len(drifts), 3) if drifts else None
+    mean_drift = round(sum(drifts) / len(drifts), 3) if drifts else "—"
     statuses = sum(c.count(STATUS_CHANGED) for c in comparisons.values())
-    exp.log(f"**Dérive moyenne à configuration constante : {mean_drift if mean_drift is not None else '—'}** "
+    exp.log(f"**Dérive moyenne à configuration constante : {mean_drift}** "
             f"({statuses} changement(s) de statut sur {len(comparisons)} comparaison(s)).")
     exp.log("")
     exp.log("## Indicateurs par passage")
@@ -71,4 +70,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run(main)

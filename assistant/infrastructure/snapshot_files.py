@@ -10,6 +10,9 @@ from assistant.application.errors import SnapshotNotFoundError
 from assistant.application.ports import Snapshot, SnapshotEntry
 from assistant.application.snapshots import SNAPSHOT_NAME, InvalidSnapshotNameError
 
+from .json_text import parse
+from .text_files import read_utf8
+
 __all__ = ["JsonSnapshotStore", "SnapshotNotFoundError"]
 
 _TEXT_FIELDS = ("question_id", "user_id", "question", "status", "text")
@@ -23,7 +26,7 @@ def _text(values: dict, key: str) -> str:
 
 
 def _entry(values: object) -> SnapshotEntry:
-    """Une réponse relue, types vérifiés comme en C# : « abc » n'est pas une liste de documents.
+    """Une réponse relue, types vérifiés : « abc » n'est pas une liste de documents.
     Les champs inconnus (instantané écrit par une version plus récente) sont ignorés."""
     if not isinstance(values, dict):
         raise ValueError("chaque réponse doit être un objet JSON")
@@ -31,6 +34,7 @@ def _entry(values: object) -> SnapshotEntry:
     if not isinstance(cited, list) or not all(isinstance(d, str) for d in cited):
         raise ValueError("« cited_documents » doit être une liste de textes")
     attempts = values.get("attempts", 0)
+    # Un entier, pas un booléen (True est un int en Python).
     if not isinstance(attempts, int) or isinstance(attempts, bool):
         raise ValueError("« attempts » doit être un entier")
     question_id, user_id, question, status, text = (_text(values, key) for key in _TEXT_FIELDS)
@@ -50,14 +54,17 @@ class JsonSnapshotStore:
         path = self._path(snapshot.name)
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(snapshot)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        # newline="\n" : les mêmes octets sous Windows et Linux (Windows écrirait \r\n).
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
     def load(self, name: str) -> Snapshot:
         path = self._path(name)
-        if not path.exists():
-            raise SnapshotNotFoundError(f"instantané introuvable : {name} (connus : {self.names()})")
+        if not path.is_file():   # un dossier « x.json » n'est pas un instantané
+            # Les noms sans crochets ni guillemets, « aucun » s'il n'y en a pas : un message qui se lit.
+            known = ", ".join(self.names()) or "aucun"
+            raise SnapshotNotFoundError(f"instantané introuvable : {name} (connus : {known})")
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = parse(read_utf8(path), strings=True)
             if not isinstance(data, dict):
                 raise ValueError("un objet JSON est attendu")
             configuration = data.get("configuration", {})
@@ -68,10 +75,13 @@ class JsonSnapshotStore:
                 raise ValueError("champ « entries » manquant ou qui n'est pas une liste")
             return Snapshot(_text(data, "name"), _text(data, "created_at"), configuration,
                             tuple(_entry(e) for e in entries))
-        except ValueError as error:   # JSONDecodeError en est une
+        except ValueError as error:
+            # JSON qui n'est pas strict (syntaxe, clé en double, NaN, entier de plus de 4300 chiffres, plus de
+            # 900 niveaux, chaîne qui n'est pas du texte : json_text) ou fichier qui n'est pas en UTF-8 : des
+            # ValueError, comme un champ mal typé.
             raise ValueError(f"instantané illisible ({path}) : {error}") from error
 
     def names(self) -> list[str]:
         if not self._directory.is_dir():
             return []
-        return sorted(p.stem for p in self._directory.glob("*.json"))
+        return sorted(p.stem for p in self._directory.glob("*.json") if p.is_file())   # des fichiers seulement

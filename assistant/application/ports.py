@@ -75,6 +75,14 @@ class IndexManifest:
 
 
 class VectorIndex(Protocol):
+    """Un index peut être reconstruit par un autre processus à tout moment.
+
+    `search(..., index_id=...)` ne cherche que dans l'index qui porte cet identifiant (celui dont
+    le cas d'usage a contrôlé le modèle) : s'il a été remplacé entre-temps, elle lève
+    `IndexReplacedError` au lieu de chercher dans un autre. `replace` lève `IndexWriteError`
+    si l'index ne peut pas être écrit ; l'index en service reste alors le précédent.
+    """
+
     def manifest(self) -> IndexManifest | None: ...
 
     def replace(
@@ -89,6 +97,7 @@ class VectorIndex(Protocol):
         vector: Sequence[float],
         top_k: int,
         predicate: Callable[[Chunk], bool],
+        index_id: str | None = None,
     ) -> list[Passage]: ...
 
 
@@ -116,7 +125,7 @@ class PromptTemplate:
     user: str
 
     def render(self, **values: str) -> str:
-        """Remplace {question} et {passages} en une seule passe, comme la version C# : les autres
+        """Remplace {question} et {passages} en une seule passe : les autres
         accolades du prompt (un exemple JSON…) restent telles quelles, et un passage qui contient
         « {question} » n'est pas substitué une seconde fois."""
         return _PLACEHOLDER.sub(lambda match: values[match.group(1)], self.user)

@@ -5,12 +5,11 @@ import unittest
 from assistant.application.ask_question import AskQuestion, AskSettings
 from assistant.application.errors import IndexModelMismatchError, IndexNotBuiltError, IndexReplacedError
 from assistant.application.index_corpus import IndexCorpus
-from assistant.application.ports import IndexManifest
+from assistant.application.ports import EmbeddingBatch, IndexManifest
 from assistant.application.search_passages import SearchPassages
-from assistant.domain.model import Chunk
-from assistant.infrastructure.vector_index import InMemoryVectorIndex
 from assistant.domain.errors import EmptyQuestionError
-from assistant.domain.model import AnswerStatus, User
+from assistant.domain.model import AnswerStatus, Chunk, User
+from assistant.infrastructure.vector_index import InMemoryVectorIndex
 from tests.fakes import (
     FakeIndex, FixedClock, KeywordEmbedder, ListSource, ScriptedGenerator, StaticPrompts,
     WholeDocumentSplitter, count_markers, make_document,
@@ -137,11 +136,56 @@ class RebuiltDuringSearch(FakeIndex):
                      make_document("note", f"Note de version : {note}.")]   # autre corpus, autre index_id
         IndexCorpus(ListSource(documents), WholeDocumentSplitter(), embedder, self, clock=FixedClock()).execute()
 
-    def search(self, vector, top_k, predicate):
+    def search(self, vector, top_k, predicate, index_id=None):
         if self.rebuilds:
             self.rebuilds -= 1
             self._rebuild(KeywordEmbedder(model=self.model), f"reconstruit, reste {self.rebuilds}")
-        return super().search(vector, top_k, predicate)
+        return super().search(vector, top_k, predicate, index_id)
+
+
+class ReplacedThenRestored(FakeIndex):
+    """Pendant la recherche, un autre processus remplace l'index (B), puis l'index d'origine revient
+    (A, même identifiant) : relire le manifeste après la recherche ne verrait rien."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._build("teletravail", "Deux jours de télétravail par semaine.")
+        self.original = (self.manifest(), self.chunks, self.vectors)
+        self.replaced = False
+
+    def _build(self, doc_id, text):
+        IndexCorpus(ListSource([make_document(doc_id, text)]), WholeDocumentSplitter(), KeywordEmbedder(),
+                    self, clock=FixedClock()).execute()
+
+    def search(self, vector, top_k, predicate, index_id=None):
+        if self.replaced:
+            return super().search(vector, top_k, predicate, index_id)
+        self.replaced = True
+        self._build("autre", "Télétravail : la règle de l'autre index.")   # B
+        try:
+            return super().search(vector, top_k, predicate, index_id)
+        finally:
+            self.replace(*self.original)   # A revient
+
+
+class CountingIndex(InMemoryVectorIndex):
+    def __init__(self) -> None:
+        super().__init__()
+        ready = indexed()
+        self.replace(ready.manifest(), ready.chunks, ready.vectors)
+        self.searches = 0
+
+    def search(self, vector, top_k, predicate, index_id=None):
+        self.searches += 1
+        return super().search(vector, top_k, predicate, index_id)
+
+
+class ShortVectorEmbedder(KeywordEmbedder):
+    """Annonce le bon modèle et la bonne dimension, mais renvoie un vecteur trop court (adaptateur défaillant)."""
+
+    def embed_query(self, text):
+        batch = super().embed_query(text)
+        return EmbeddingBatch(batch.model, batch.dimension, [batch.vectors[0][:-1]])
 
 
 class SearchPassagesTest(unittest.TestCase):
@@ -161,10 +205,23 @@ class SearchPassagesTest(unittest.TestCase):
         with self.assertRaises(IndexReplacedError):
             SearchPassages(KeywordEmbedder(), RebuiltDuringSearch(rebuilds=2)).execute(ALICE, "télétravail", 4)
 
+    def test_an_index_replaced_then_restored_during_the_search_is_not_mixed_up(self):
+        """A → B → A : les passages viennent de l'index annoncé dans la trace, jamais de B."""
+        retrieval = SearchPassages(KeywordEmbedder(), ReplacedThenRestored()).execute(ALICE, "télétravail", 4)
+        self.assertEqual([p.chunk.document_id for p in retrieval.passages], ["teletravail"])
+
+    def test_a_search_error_on_the_checked_index_is_a_real_error(self):
+        """Même index, recherche en échec : une vraie erreur (500), pas « reconstruit, reposez la question » (409)."""
+        index = CountingIndex()
+        with self.assertRaises(ValueError):
+            SearchPassages(ShortVectorEmbedder(), index).execute(ALICE, "télétravail", 4)
+        self.assertEqual(index.searches, 1)
+
 
 class RebuiltWithAnotherDimension(InMemoryVectorIndex):
-    """Reconstruit par un autre modèle, d'une autre dimension, pendant la recherche : c'est la
-    recherche elle-même qui échoue (vecteur de la mauvaise taille), avant toute vérification."""
+    """Reconstruit par un autre modèle, d'une autre dimension, pendant la recherche : la recherche refuse
+    l'index remplacé (index_id, vérifié avant la dimension : IndexReplacedError), SearchPassages recommence,
+    et le contrôle du modèle donne IndexModelMismatchError (409)."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -172,14 +229,14 @@ class RebuiltWithAnotherDimension(InMemoryVectorIndex):
         self.replace(ready.manifest(), ready.chunks, ready.vectors)
         self.rebuilt = False
 
-    def search(self, vector, top_k, predicate):
+    def search(self, vector, top_k, predicate, index_id=None):
         if not self.rebuilt:
             self.rebuilt = True
             dimension = len(vector) + 2
             self.replace(IndexManifest("autre-index", "autre-modele", dimension, "fp", {}, 1, 1, "t"),
                          [Chunk("autre#0", "autre", "Autre", "texte", 0, frozenset({"tous"}))],
                          [[1.0] * dimension])
-        return super().search(vector, top_k, predicate)
+        return super().search(vector, top_k, predicate, index_id)
 
 
 class SearchPassagesDimensionTest(unittest.TestCase):

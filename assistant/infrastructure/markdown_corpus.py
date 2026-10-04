@@ -20,6 +20,8 @@ from pathlib import Path
 
 from assistant.domain.model import Document
 
+from .text_files import read_utf8
+
 _GROUP = re.compile(r"[a-z0-9][a-z0-9_-]*")
 
 
@@ -47,13 +49,15 @@ def parse_markdown_document(content: str, origin: str = "<texte>") -> Document:
 
     if not meta.get("id"):
         raise CorpusFormatError(f"{origin} : champ 'id' obligatoire")
-    groups = frozenset(g.strip() for g in meta.get("groupes", "").split(",") if g.strip())
+    groups = frozenset(
+        g.strip() for g in meta.get("groupes", "").split(",") if g.strip()
+    )
     if not groups:
         raise CorpusFormatError(f"{origin} : champ 'groupes' obligatoire (« tous » pour un document public)")
     invalid = sorted(g for g in groups if not _GROUP.fullmatch(g))
     if invalid:
         raise CorpusFormatError(
-            f"{origin} : groupe(s) invalide(s) {invalid} : des noms en minuscules séparés par des "
+            f"{origin} : groupe(s) invalide(s) [{', '.join(invalid)}] : des noms en minuscules séparés par des "
             "virgules, sans commentaire"
         )
     return Document(
@@ -64,6 +68,13 @@ def parse_markdown_document(content: str, origin: str = "<texte>") -> Document:
     )
 
 
+def _read(path: Path) -> str:
+    try:
+        return read_utf8(path)
+    except ValueError as error:   # un document enregistré en latin-1 n'est pas lu de travers : on dit lequel
+        raise CorpusFormatError(f"{path} : {error}") from error
+
+
 class MarkdownCorpus:
     def __init__(self, directory: str | Path) -> None:
         self._directory = Path(directory)
@@ -72,11 +83,12 @@ class MarkdownCorpus:
         if not self._directory.is_dir():
             raise CorpusFormatError(f"Dossier de corpus introuvable : {self._directory}")
         documents = [
-            parse_markdown_document(path.read_text(encoding="utf-8-sig"), str(path))
+            parse_markdown_document(_read(path), str(path))
             for path in sorted(self._directory.glob("*.md"))
         ]
         ids = [d.id for d in documents]
         duplicates = {i for i in ids if ids.count(i) > 1}
         if duplicates:
-            raise CorpusFormatError(f"Identifiants de documents en double : {sorted(duplicates)}")
+            # Listes écrites [a, b], des identifiants à lire, pas ['a', 'b'] (la forme Python d'une liste).
+            raise CorpusFormatError(f"Identifiants de documents en double : [{', '.join(sorted(duplicates))}]")
         return documents

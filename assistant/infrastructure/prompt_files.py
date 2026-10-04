@@ -10,7 +10,10 @@ import hashlib
 import tomllib
 from pathlib import Path
 
+from assistant.application.errors import PromptNotFoundError
 from assistant.application.ports import PromptTemplate
+
+from .text_files import read_utf8
 
 
 class FilePromptRepository:
@@ -19,11 +22,16 @@ class FilePromptRepository:
 
     def get(self, name: str) -> PromptTemplate:
         path = self._directory / f"{name}.toml"
-        # Normalise les fins de ligne : l'empreinte est la même sous Windows et Linux.
-        text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
         try:
-            data = tomllib.loads(text)
-        except tomllib.TOMLDecodeError as error:
+            # read_utf8 normalise déjà les fins de ligne (mode texte) : l'empreinte est la même sous Windows et Linux.
+            data = tomllib.loads(read_utf8(path))
+        except FileNotFoundError:
+            # Fichier ou dossier absent : le nom, le dossier et les prompts connus, plutôt que
+            # « [Errno 2] No such file or directory ».
+            raise PromptNotFoundError(name, str(self._directory), self._names()) from None
+        except (ValueError, RecursionError) as error:
+            # TOMLDecodeError est une ValueError, comme un fichier qui n'est pas en UTF-8 ; RecursionError :
+            # des tableaux imbriqués sur des milliers de niveaux.
             raise ValueError(f"prompt illisible ({path}) : {error}") from error
         values = [data.get(key) for key in ("version", "system", "user")]
         if not all(isinstance(value, str) for value in values):
@@ -36,6 +44,11 @@ class FilePromptRepository:
             system=system,
             user=user,
         )
+
+    def _names(self) -> list[str]:
+        """Les noms des prompts du dossier, triés comme ceux des instantanés (JsonSnapshotStore.names) : des
+        fichiers seulement ; un dossier « x.toml » n'en est pas un."""
+        return sorted(p.stem for p in self._directory.glob("*.toml") if p.is_file())
 
 
 def prompt_fingerprint(version: str, system: str, user: str) -> str:

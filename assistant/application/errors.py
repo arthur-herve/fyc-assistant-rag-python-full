@@ -38,10 +38,24 @@ class IndexModelMismatchError(ApplicationError):
 
 
 class IndexReplacedError(ApplicationError):
-    """L'index a été reconstruit (par un autre processus) pendant la recherche, deux fois de suite."""
+    """L'index a été reconstruit (par un autre processus) entre le contrôle du modèle et la recherche.
+
+    Fait partie du contrat du port `VectorIndex` : la recherche la lève au lieu de chercher dans un
+    autre index que celui contrôlé. `SearchPassages` recommence une fois, puis la laisse passer.
+    """
 
     def __init__(self) -> None:
         super().__init__("L'index a été reconstruit pendant la recherche. Reposez la question.")
+
+
+class IndexWriteError(ApplicationError):
+    """L'index n'a pas pu être écrit : fait partie du contrat du port `VectorIndex`.
+
+    L'index en service reste le précédent, en mémoire comme sur le disque.
+    """
+
+    def __init__(self, location: str, detail: str) -> None:
+        super().__init__(f"écriture impossible de l'index ({location}) : {detail}")
 
 
 class InconsistentEmbeddingsError(ApplicationError):
@@ -77,3 +91,14 @@ class ModelOutputRejectedError(ApplicationError):
 
 class SnapshotNotFoundError(ApplicationError):
     """Aucun instantané de ce nom : fait partie du contrat du port `SnapshotStore`."""
+
+
+class PromptNotFoundError(ApplicationError):
+    """Aucun prompt de ce nom : fait partie du contrat du port `PromptRepository`.
+
+    Le message nomme le prompt, l'endroit où il a été cherché et les prompts connus (« aucun » s'il n'y en a
+    pas) : un nom mal tapé se corrige d'un coup d'œil.
+    """
+
+    def __init__(self, name: str, location: str, known: list[str]) -> None:
+        super().__init__(f"prompt introuvable : {name} dans {location} (connus : {', '.join(known) or 'aucun'})")

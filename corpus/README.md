@@ -27,6 +27,10 @@ document illisible par tout le monde : sûr, mais silencieux, à vérifier avec 
 clés de l'en-tête (source, date, thème…) sont conservées à titre documentaire et ignorées par
 l'application.
 
+Les fichiers sont en UTF-8 (une marque d'ordre des octets en tête est acceptée) : un document
+enregistré dans un autre encodage (latin-1…) arrête le chargement avec un message qui le nomme et
+donne la position de l'octet fautif.
+
 > Un dossier de corpus ne contient que des documents : tout fichier `.md` doit porter l'en-tête, c'est pourquoi l'attribution ci-dessous n'est pas dans `service-public/`.
 
 ## `service-public/` : fiches Service-Public.gouv.fr, thème « Travail - Formation », secteur privé

@@ -15,7 +15,7 @@ DOCS = [make_document("a", "télétravail deux jours"), make_document("b", "frai
 
 class OtherSplitter(WholeDocumentSplitter):
     def describe(self):
-        return {"type": "whole", "max_chars": 300}
+        return {"type": "whole", "max_chars": 300, "include_title": True}
 
 
 class BrokenEmbedder(KeywordEmbedder):
@@ -55,7 +55,7 @@ class CheckStatusTest(unittest.TestCase):
         self.assertIn("réindexer", report.issues[0])
 
     def test_detects_a_text_modified_under_the_same_id(self):
-        """Même documents, mêmes identifiants : seul un texte a changé, et cela suffit."""
+        """Mêmes documents, mêmes identifiants : seul un texte a changé, et cela suffit."""
         edited = [make_document("a", "télétravail trois jours"), DOCS[1]]
         report = status(build_index(), documents=edited)
         self.assertEqual(len(report.issues), 1)
@@ -68,7 +68,10 @@ class CheckStatusTest(unittest.TestCase):
 
     def test_detects_a_changed_splitter(self):
         report = status(build_index(), splitter=OtherSplitter())
-        self.assertIn("découpage modifié", report.issues[0])
+        # L'ancien et le nouveau découpage, clés triées, true plutôt que True.
+        self.assertIn("découpage modifié ({type: whole} → ", report.issues[0])
+        self.assertIn("{include_title: true, max_chars: 300, type: whole}", report.issues[0])
+        self.assertIn("réindexer", report.issues[0])
 
     def test_detects_that_the_ai_service_now_serves_another_model(self):
         report = status(build_index(), embedder=KeywordEmbedder(model="fake-keywords-v2"))

@@ -11,14 +11,23 @@ consignes, la dérive attendue est 0 : il faut un vrai modèle pour voir l'effet
 
 from __future__ import annotations
 
-from _commun import ANSWERED, Experiment, drift_summary, parser
+from _commun import ANSWERED, Experiment, drift_summary, parser, run
+
+
+def mean_length(snapshot) -> int | None:
+    """La longueur moyenne des réponses données, en caractères (len : un emoji compte pour un), arrondie à l'entier
+    (round : à égalité, vers le pair) ; None sans réponse donnée."""
+    answered = [len(e.text) for e in snapshot.entries if e.status == ANSWERED]
+    return round(sum(answered) / len(answered)) if answered else None
 
 
 def main() -> None:
     p = parser(__doc__.split("\n")[0])
     p.add_argument("--other", default="answer-v2", help="nom du second prompt (défaut answer-v2)")
     args = p.parse_args()
-    exp = Experiment("prompt-v2", args)
+    # Le second prompt, vérifié avec les autres options : introuvable, il est dit avant l'index et l'instantané « avant ».
+    exp = Experiment("prompt-v2", args, changes={"prompt_name": args.other})
+    exp.start()
     first = exp.config.prompt_name
 
     container_a, manifest, _ = exp.index("partage")
@@ -27,10 +36,6 @@ def main() -> None:
     print(f"Après : prompt {args.other}")
     container_b = exp.container("partage", prompt_name=args.other)
     snapshot_b, _ = exp.record("apres", container_b)
-
-    def mean_length(snapshot):
-        answered = [len(e.text) for e in snapshot.entries if e.status == ANSWERED]
-        return round(sum(answered) / len(answered)) if answered else None
 
     comparison = exp.compare(snapshot_a, snapshot_b)
     exp.log(f"Une seule chose change : le prompt, `{first}` → `{args.other}` "
@@ -63,4 +68,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run(main)

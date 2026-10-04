@@ -15,20 +15,23 @@ import time
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from assistant.application.errors import ApplicationError  # noqa: E402
 from assistant.application.ports import Snapshot  # noqa: E402
 from assistant.application.snapshots import (  # noqa: E402
     IDENTICAL, MISSING, SOURCES_CHANGED, STATUS_CHANGED, TEXT_CHANGED, SnapshotComparison, SnapshotQuestion,
     compare_snapshots,
 )
-from assistant.composition import AppConfig, build  # noqa: E402
+from assistant.composition import AppConfig, UnknownUserError, build, config_file  # noqa: E402
+from assistant.domain.errors import DomainError  # noqa: E402
 from assistant.domain.model import AnswerStatus  # noqa: E402
 from assistant.interface.benchmark import (  # noqa: E402
-    EvalQuestion, check_ai_service, keyword_coverage, load_questions,
+    EvalQuestion, check_ai_service, check_served_model, create_new_dir, keyword_coverage, limit_questions,
+    load_questions, results_dir,
 )
 from assistant.interface.presenter import comparison_to_text  # noqa: E402
 
@@ -39,38 +42,108 @@ ANSWERED, NO_RELEVANT_SOURCE, UNSOURCED = (s.value for s in (
 
 def parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
-    p.add_argument("--config", default="config/app.toml")
+    # Sans --config : ASSISTANT_CONFIG, sinon config/app.toml, comme `python -m assistant`.
+    p.add_argument("--config", help="fichier de configuration (défaut : ASSISTANT_CONFIG, sinon config/app.toml)")
     p.add_argument("--questions", default="eval/questions.json")
     p.add_argument("--limit", type=int, help="ne garder que les N premières questions")
     p.add_argument("--out", help="dossier de sortie (défaut : eval/resultats/exp-<nom>-<date>)")
     return p
 
 
-class Experiment:
-    """Un dossier de sortie, une configuration, des questions, des instantanés."""
+def run(main: Callable[[], None]) -> None:
+    """Lance une expérience : une option, une configuration ou un fichier invalide donne « Erreur : … »
+    et le code 1, comme `python -m assistant`, pas une trace."""
+    # Sortie en UTF-8 même redirigée vers un fichier (Windows encoderait en cp1252), comme `python -m assistant`.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    try:
+        main()
+    except (ApplicationError, DomainError, UnknownUserError, ValueError) as error:
+        sys.exit(f"Erreur : {error}")
+    except OSError as error:
+        sys.exit(f"Erreur : fichier ou dossier inaccessible — {error}")
 
-    def __init__(self, name: str, args: argparse.Namespace) -> None:
+
+class Experiment:
+    """Un dossier de sortie, une configuration, des questions, des instantanés.
+
+    Les options sont toutes vérifiées à la construction, et là seulement : après la lecture de la
+    configuration, avant tout travail. Les questions (--limit, utilisateurs), le prompt de la
+    configuration, ce que l'expérience change (`changes` : un second prompt, un autre découpage),
+    monté sans rien calculer, et le nombre de passages (`runs`) d'une expérience qui se répète :
+    une faute de frappe ne coûte ni dossier, ni index, ni appel au service IA.
+    Puis `start`, avant tout index : le service IA doit répondre et servir l'alias --other avec le
+    bon type, et un seuil `default` est annoncé. Le dossier n'est créé qu'à la première indexation ;
+    celui par défaut, daté à la seconde, n'est jamais un dossier qui existe déjà (« -2 », « -3 »…).
+    """
+
+    def __init__(self, name: str, args: argparse.Namespace, *, changes: dict[str, Any] | None = None,
+                 runs: int | None = None) -> None:
         self.name = name
-        self.out = Path(args.out or f"eval/resultats/exp-{name}-{datetime.now():%Y%m%d-%H%M%S}")
-        self.out.mkdir(parents=True, exist_ok=True)
-        base = AppConfig.load(args.config)
-        check_ai_service(base.ai_base_url)
+        # Sans --out : sous la racine du projet, d'où qu'on lance le script, créé par _create_out.
+        self.out = Path(args.out) if args.out else results_dir(f"exp-{name}-", datetime.now())
+        self._new_out_dir = not args.out
+        source = config_file(args.config)
+        base = AppConfig.load(source)
         # Instantanés et index de l'expérience restent dans son dossier.
         self.config = replace(base, snapshots_dir=self.out / "instantanes")
-        self.questions: list[EvalQuestion] = load_questions(args.questions)[: args.limit or None]
-        if not self.questions:
-            raise SystemExit(f"aucune question dans {args.questions}")
+        # Les options, toutes ici : la configuration est lue, et rien n'est encore fait.
+        self.questions: list[EvalQuestion] = limit_questions(load_questions(args.questions), args.limit)
+        for q in self.questions:
+            self.config.user(q.user)   # utilisateur inconnu : UnknownUserError avant tout travail
+        self._check()
+        if changes:
+            self._check(**changes)
+        if runs is not None and runs < 2:
+            raise ValueError("--runs doit valoir au moins 2 : il faut deux passages pour mesurer une dérive")
+        self._started = False   # voir start()
         self.lines: list[str] = [f"# Expérience « {name} » — {datetime.now():%Y-%m-%d %H:%M}", ""]
-        self.log(f"Configuration `{args.config}` · {len(self.questions)} questions de `{args.questions}` · "
+        # Les chemins tels qu'ils ont été donnés (sans --config : le fichier lu, ASSISTANT_CONFIG ou
+        # config/app.toml en chemin complet), avec des « / » : le même rapport sous Windows et Linux.
+        config_path, questions_path = (str(path).replace("\\", "/") for path in (args.config or source, args.questions))
+        self.log(f"Configuration `{config_path}` · {len(self.questions)} questions de `{questions_path}` · "
                  f"corpus `{self.config.corpus_dir.name}`.")
         self.log("")
 
     # --- assemblage -----------------------------------------------------
 
+    def _check(self, **overrides: Any) -> None:
+        """Monte la configuration que l'expérience utilisera, sans rien calculer : un découpage hors bornes
+        ou un prompt introuvable (celui de la configuration, ou le second de prompt-v2) est dit avant
+        l'indexation et l'instantané « avant »."""
+        container = build(self.config, **overrides)
+        container.prompts.get(container.settings.prompt_name)
+
+    def start(self, *, embedding: str | None = None, generation: str | None = None) -> None:
+        """Les options vérifiées (à la construction), le service IA doit répondre, et servir l'alias --other
+        (`embedding` ou `generation`) avec ce type (GET /v1/models). Puis le seuil `default` du modèle
+        principal est annoncé : après les vérifications, jamais avant une erreur."""
+        check_ai_service(self.config.ai_base_url)
+        for kind, alias in (("embedding", embedding), ("generation", generation)):
+            if alias is not None:
+                check_served_model(self.config.ai_base_url, kind, alias)
+        self._started = True
+        self.warn_if_default_threshold(self.config.embedding_model)
+
+    def warn_if_default_threshold(self, embedding_model: str) -> None:
+        """Aucun seuil configuré pour cet alias : la valeur `default` s'applique, et on le dit (console
+        et rapport), comme la ligne de commande et le banc d'essai (ADR 0004)."""
+        if self.config.has_threshold_for(embedding_model):
+            return
+        message = (f"Attention : aucun seuil de pertinence configuré pour « {embedding_model} » : valeur "
+                   f"`default` {self.config.min_score_for(embedding_model)} (ADR 0004 : lancer le banc d'essai)")
+        print(message, file=sys.stderr)
+        self.log(f"> {message}")
+        self.log("")
+
     def container(self, index_name: str, **overrides: Any):
         return build(self.config, index_path=self.out / f"index-{index_name}.json", **overrides)
 
     def index(self, index_name: str, **overrides: Any):
+        if not self._started:
+            raise RuntimeError("Experiment.start() d'abord : options et service IA vérifiés avant tout index")
+        self._create_out()   # le travail commence
         container = self.container(index_name, **overrides)
         start = time.perf_counter()
         manifest = container.index_corpus.execute()
@@ -86,6 +159,17 @@ class Experiment:
         seconds = time.perf_counter() - start
         print(f"  instantané « {snapshot_name} » : {len(snapshot.entries)} réponses en {seconds:.1f} s")
         return snapshot, seconds
+
+    def _create_out(self) -> None:
+        """Crée le dossier de sortie, s'il ne l'est pas déjà (à chaque index, et avant le rapport). Celui par défaut,
+        daté à la seconde, n'est jamais un dossier qui existe déjà : « -2 », « -3 »… (create_new_dir) ; index et
+        instantanés le suivent. --out peut exister."""
+        if not self._new_out_dir:
+            self.out.mkdir(parents=True, exist_ok=True)
+            return
+        self.out = create_new_dir(self.out)
+        self.config = replace(self.config, snapshots_dir=self.out / "instantanes")
+        self._new_out_dir = False
 
     # --- mesures --------------------------------------------------------
 
@@ -141,9 +225,11 @@ class Experiment:
         self.log("")
 
     def write(self) -> Path:
+        self._create_out()
         path = self.out / "rapport.md"
-        path.write_text("\n".join(self.lines) + "\n", encoding="utf-8")
-        print(f"\nRapport : {path}")
+        # newline="\n" et des « / » : sous Windows aussi, des fins de ligne et des chemins écrits comme sous Linux.
+        path.write_text("\n".join(self.lines) + "\n", encoding="utf-8", newline="\n")
+        print(f"\nRapport : {path.as_posix()}")
         return path
 
 
@@ -170,4 +256,6 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
-__all__ = ["Experiment", "IDENTICAL", "MISSING", "STATUS_CHANGED", "drift_summary", "parser"]
+# Tout ce que les scripts voisins importent d'ici (test_banc.py le vérifie).
+__all__ = ["ANSWERED", "Experiment", "IDENTICAL", "MISSING", "NO_RELEVANT_SOURCE", "STATUS_CHANGED", "UNSOURCED",
+           "drift_summary", "parser", "run"]

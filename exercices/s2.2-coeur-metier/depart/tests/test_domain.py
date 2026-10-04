@@ -39,6 +39,13 @@ class CitationsTest(unittest.TestCase):
     def test_duplicates_are_counted_once(self):
         self.assertEqual(check_citations("[2] puis [2,1]", 2).cited, (2, 1))
 
+    def test_a_huge_citation_number_is_invalid_not_an_exception(self):
+        # Des milliers de chiffres, que int() refuse de convertir : une citation invalide, sans exception.
+        check = check_citations("Deux jours [1], voir [" + "9" * 5000 + "].", passage_count=2)
+        self.assertEqual(check.cited, (1,))
+        self.assertEqual(len(check.invalid), 1)
+        self.assertFalse(check.is_valid)
+
 
 if __name__ == "__main__":
     unittest.main()

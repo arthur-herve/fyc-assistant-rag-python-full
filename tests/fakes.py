@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone
 from typing import Callable, Sequence
 
+from assistant.application.errors import IndexReplacedError
 from assistant.application.ports import (
     EmbeddingBatch, Generation, GenerationRequest, IndexManifest, PromptTemplate, Snapshot,
 )
@@ -66,7 +67,10 @@ class FakeIndex:
     def replace(self, manifest, chunks, vectors):
         self._manifest, self.chunks, self.vectors = manifest, list(chunks), [list(v) for v in vectors]
 
-    def search(self, vector, top_k, predicate: Callable[[Chunk], bool]):
+    def search(self, vector, top_k, predicate: Callable[[Chunk], bool], index_id=None):
+        if index_id is not None and (self._manifest is None or self._manifest.index_id != index_id):
+            raise IndexReplacedError()   # contrat du port : jamais chercher dans un autre index que celui contrôlé
+
         def cosine(a, b):
             na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
             return 0.0 if not na or not nb else sum(x * y for x, y in zip(a, b)) / (na * nb)

@@ -3,9 +3,9 @@
 Les paramètres de découpage changent les réponses (principe CACE, séquence
 3.2) : ils sont donc enregistrés dans le manifeste de l'index.
 
-`max_chars` borne le texte du morceau ; avec `include_title`, le titre du
-document s'y ajoute (il aide la recherche) : un morceau peut donc dépasser
-`max_chars` de la longueur du titre.
+`max_chars` borne le texte du morceau, en caractères ; avec `include_title`,
+le titre du document s'y ajoute (il aide la recherche) : un morceau peut donc
+dépasser `max_chars` de la longueur du titre.
 """
 
 from __future__ import annotations

@@ -74,15 +74,15 @@ correction commentée (vidéo S5.2) parcourt le tableau suivant, défaut par dé
 
 | Défaut dans `depart/assistant_rag.py` | Catégorie | Où c'est corrigé dans le dépôt |
 |---|---|---|
-| Les droits sont appliqués **après** le top-k (`search`) : un passage réservé consomme une place, puis est retiré ; et le prompt demande au modèle de « ne pas utiliser » les passages marqués (réservé) | règle métier mal placée | `domain/access.py` + prédicat passé à `VectorIndex.search` dans `application/ask_question.py` ; ADR 0006 |
+| Les droits sont appliqués **après** le top-k (`search`) : un passage réservé consomme une place, puis est retiré ; et le prompt demande au modèle de « ne pas utiliser » les passages marqués (réservé) | règle métier mal placée | `domain/access.py` + prédicat passé à `VectorIndex.search` dans `application/search_passages.py` ; ADR 0006 |
 | Les citations sont extraites par regex sans vérifier qu'elles renvoient à un passage fourni (`[7]` passe) ; une réponse sans citation est réessayée une fois puis affichée telle quelle | règle métier absente | `domain/citations.py`, statut `UNSOURCED` ; `domain/output_rules.py` pour la forme |
-| `--embed nomic` sans réindexer : `zip` tronque les vecteurs, les scores deviennent du bruit, l'application répond « aucun document » sans erreur | absence de frontière + traçabilité | `IndexManifest` + `IndexModelMismatchError` ; ADR 0003 ; commande `status` |
+| `--embed nomic` sans réindexer : `zip` tronque les vecteurs, les scores deviennent du bruit, l'application répond « aucun document » sans erreur | absence de frontière + traçabilité | `IndexManifest` + `IndexModelMismatchError` ; ADR 0003 ; commandes `status` et `index --if-stale` |
 | `re.sub("<think>…")` dans `generate` | particularité de modèle qui a fui | `ai_service/registry.py` (balises retirées quel que soit le moteur) et `ai_service/backends/ollama.py` (réflexion renvoyée à part, budget séparé) ; ADR 0001 |
 | `THRESHOLD = 0.65` « ajusté à la main », valable pour un seul modèle et un seul corpus | règle métier mal placée | `[retrieval.min_score]` par modèle et par corpus, calibré par le banc ; ADR 0004 |
 | `PROMPT` constante, ni versionnée ni tracée | absence de traçabilité | `prompts/answer.toml`, version + empreinte dans `AnswerTrace` ; ADR 0005 |
 | `EMBED_MODEL`, `GEN_MODEL`, `USERS`, `AI_URL` en globales modifiées par `main` ; `INDEX` global ; `sys.exit` dans la logique | absence de frontière | `composition.py` (seul endroit qui connaît tout), `AppConfig`, erreurs typées attrapées dans `interface/` |
 | `pickle` sans manifeste : l'index ne sait pas de quoi il est dérivé | absence de traçabilité | `infrastructure/vector_index.py` (JSON lisible + manifeste) ; `docs/artefacts.md` |
-| Corpus parsé, découpé, vectorisé, recherché et généré dans le même module ; aucun test possible sans service IA | absence de frontière | ports `DocumentSource`, `TextSplitter`, `Embedder`, `VectorIndex`, `Generator` ; doubles dans `tests/fakes.py` ; 182 tests sans réseau |
+| Corpus parsé, découpé, vectorisé, recherché et généré dans le même module ; aucun test possible sans service IA | absence de frontière | ports `DocumentSource`, `TextSplitter`, `Embedder`, `VectorIndex`, `Generator` ; doubles dans `tests/fakes.py` ; 401 tests sans réseau |
 
 Les trois demandes, après refonte : (1) changer d'embeddings = changer un alias dans la
 configuration, réindexer, et l'application refuse tant que ce n'est pas fait ; (2) la

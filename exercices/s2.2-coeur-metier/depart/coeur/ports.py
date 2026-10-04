@@ -6,11 +6,14 @@ Les cas d'usage ne connaissent que ces signatures.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Protocol, Sequence
 
 from coeur.model import Chunk, Document, Passage
+
+_PLACEHOLDER = re.compile(r"\{(passages|question)\}")
 
 
 # --- Embeddings --------------------------------------------------------------
@@ -113,7 +116,10 @@ class PromptTemplate:
     user: str
 
     def render(self, **values: str) -> str:
-        return self.user.format(**values)
+        """Remplace {question} et {passages} en une seule passe : les autres
+        accolades du prompt (un exemple JSON…) restent telles quelles, et un passage qui contient
+        « {question} » n'est pas substitué une seconde fois."""
+        return _PLACEHOLDER.sub(lambda match: values[match.group(1)], self.user)
 
 
 class PromptRepository(Protocol):

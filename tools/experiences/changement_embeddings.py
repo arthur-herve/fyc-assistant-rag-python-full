@@ -9,7 +9,7 @@ On montre l'erreur, on réindexe, puis on mesure ce qui a bougé.
 
 from __future__ import annotations
 
-from _commun import Experiment, drift_summary, parser
+from _commun import Experiment, drift_summary, parser, run
 from assistant.application.errors import AIServiceError, IndexModelMismatchError
 
 
@@ -18,6 +18,8 @@ def main() -> None:
     p.add_argument("--other", required=True, help="alias du second modèle d'embeddings (ex. nomic)")
     args = p.parse_args()
     exp = Experiment("changement-embeddings", args)
+    exp.start(embedding=args.other)   # --other : un modèle d'embeddings servi, vérifié avant tout index
+    exp.warn_if_default_threshold(args.other)
     first = exp.config.embedding_model
 
     print(f"Avant : {first}")
@@ -32,7 +34,7 @@ def main() -> None:
     except IndexModelMismatchError as error:
         mismatch = str(error)
     except AIServiceError as error:
-        raise SystemExit(f"le service IA ne sert pas « {args.other} » : {error}")
+        raise ValueError(f"le service IA ne sert pas « {args.other} » : {error}") from error
     print("  sans réindexer :", mismatch or "AUCUNE ERREUR (inattendu)")
 
     # 2. Réindexation, puis mêmes questions.
@@ -78,4 +80,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run(main)

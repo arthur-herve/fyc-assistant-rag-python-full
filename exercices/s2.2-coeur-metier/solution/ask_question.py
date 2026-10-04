@@ -35,7 +35,10 @@ from coeur.ports import Embedder, GenerationRequest, Generator, PromptRepository
 @dataclass(frozen=True)
 class AskSettings:
     top_k: int = 4
-    # Attention : ce seuil n'a de sens que pour UN modèle d'embeddings donné.
+    # Attention : ce seuil n'a de sens que pour UN modèle d'embeddings donné. La composition
+    # fixe toujours celui que la configuration donne pour l'alias utilisé, ou `default` : la ligne
+    # de commande, le banc d'essai et les expériences le signalent alors (ADR 0004). 0,35 ne sert
+    # qu'aux tests.
     min_score: float = 0.35
     max_attempts: int = 2
     temperature: float = 0.2
@@ -45,6 +48,9 @@ class AskSettings:
 
 
 def format_passages(passages: Sequence[Passage]) -> str:
+    """Numérote les passages pour les citations. Quand le découpage inclut déjà le titre dans
+    le morceau, le titre apparaît deux fois : redondance assumée (quelques mots), pour que les
+    prompts restent ceux des mesures de référence (eval/resultats)."""
     blocks = []
     for number, passage in enumerate(passages, start=1):
         blocks.append(

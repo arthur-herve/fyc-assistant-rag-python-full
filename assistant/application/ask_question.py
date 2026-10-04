@@ -37,8 +37,9 @@ from .search_passages import SearchPassages
 class AskSettings:
     top_k: int = 4
     # Attention : ce seuil n'a de sens que pour UN modèle d'embeddings donné. La composition
-    # fixe toujours celui que la configuration donne pour l'alias utilisé (ou `default`, avec
-    # un avertissement ; ADR 0004) : 0,35 ne sert qu'aux tests.
+    # fixe toujours celui que la configuration donne pour l'alias utilisé, ou `default` : la ligne
+    # de commande, le banc d'essai et les expériences le signalent alors (ADR 0004). 0,35 ne sert
+    # qu'aux tests.
     min_score: float = 0.35
     max_attempts: int = 2
     temperature: float = 0.2

@@ -10,11 +10,11 @@ que Git versionne naturellement.
 | Artefact | Où il vit | Qui le change | Ce qui en dépend | Comment on le trace |
 |---|---|---|---|---|
 | **Code** | `assistant/`, `ai_service/` | les développeurs | tout | Git |
-| **Corpus** | `corpus/<nom>/*.md` | les métiers (RH, juridique…), la DILA pour Service-Public | l'index | `corpus_fingerprint` dans le manifeste de l'index (empreinte des textes **et** des droits d'accès ; formule changée le 21/09/2026 — chaque champ précédé de sa longueur — : un index construit avant est vu « corpus modifié » par `status` : relancer `index`) |
+| **Corpus** | `corpus/<nom>/*.md` | les métiers (RH, juridique…), la DILA pour Service-Public | l'index | `corpus_fingerprint` dans le manifeste de l'index (empreinte des textes **et** des droits d'accès ; formule changée le 21/09/2026 — chaque champ précédé de sa longueur — : un index construit avant est vu « corpus modifié » par `status` : `index --if-stale` le refait) |
 | **Découpage** | `[splitter]` de la configuration | les développeurs | l'index, les seuils | `splitter` dans le manifeste ; `index_id` change avec lui |
 | **Index** | `data/index*.json` | personne : il est **dérivé** | les réponses | `IndexManifest` : `index_id`, modèle concret, dimension, empreinte du corpus, découpage, date |
 | **Prompts** | `assistant/prompts/*.toml` | développeurs ou métiers | les réponses (pas l'index) | `version` déclarée + empreinte du contenu (version, system, user — indépendante du format de fichier, identique dans la version C#), inscrites dans chaque `AnswerTrace` |
-| **Modèle d'embeddings** | derrière un alias du service IA (`config/ai_service.toml`) | l'équipe qui exploite le service IA | l'index, les seuils de pertinence | identifiant concret renvoyé par le service (`ollama:bge-m3@790764…`) et comparé au manifeste **à chaque question** (voir le cache plus bas) |
+| **Modèle d'embeddings** | derrière un alias du service IA (`config/ai_service.toml`) | l'équipe qui exploite le service IA | l'index, les seuils de pertinence | identifiant concret renvoyé par le service (`ollama:bge-m3@790764…`) et comparé au manifeste **à chaque question** (voir le cache plus bas) ; préfixes compris depuis le 21/09/2026 (`…+prefixes-03aa22a9` pour `nomic`, de même pour `mxbai` et `st-e5-small`) : un index construit avant avec l'un de ces alias est refusé comme construit avec un autre modèle, `index --if-stale` le refait |
 | **Modèle de génération** | derrière un alias du service IA | l'équipe IA | les réponses (pas l'index) | identifiant concret dans chaque `AnswerTrace` |
 
 Deux artefacts ne sont pas des fichiers mais des **réglages** qui dépendent des précédents :
@@ -47,7 +47,9 @@ le verdict « le générateur est un détail », et sa limite : il change quand 
 
 | Changement | Détecté par | Moment | Réaction |
 |---|---|---|---|
-| Modèle d'embeddings servi ≠ modèle de l'index | `AskQuestion` (`IndexModelMismatchError`) | à chaque question qui atteint le service (voir le cache plus bas) | erreur : réindexer |
+| Modèle d'embeddings servi ≠ modèle de l'index | `SearchPassages` (`IndexModelMismatchError`) | à chaque question qui atteint le service (voir le cache plus bas) | erreur : réindexer |
+| Index reconstruit par un autre processus pendant une question | l'index lui-même (`search(…, index_id)`), puis `SearchPassages` | à chaque question | une nouvelle tentative, puis erreur « Reposez la question » (409 en HTTP) |
+| Fichier d'index supprimé | `JsonVectorIndex` | à la question suivante | « aucun index » (409 en HTTP), comme en ligne de commande |
 | Corpus modifié depuis l'indexation | `python -m assistant status` (`CheckStatus`) | à la demande | verdict « à refaire » |
 | Découpage modifié | `status` | à la demande | verdict « à refaire » |
 | Prompt modifié | version + empreinte dans chaque trace ; `snapshot compare` | à chaque réponse ; à la demande | on sait *quel* prompt a produit *quelle* réponse |
@@ -74,10 +76,19 @@ savoir de quoi il a été dérivé. Le manifeste de l'index joue le rôle de la 
 d'un modèle. Le vrai réentraînement (modifier les poids d'un modèle) est hors du périmètre du
 cours ; l'analogie s'arrête là.
 
+Le cycle complet tient en deux commandes : `status` détecte, `index --if-stale` reconstruit —
+seulement si `status` a dit « à refaire », rien si l'index est à jour. Si seul le modèle servi reste
+à vérifier, parce que le service IA n'a pas pu être interrogé (verdict « non vérifié » : corpus et
+découpage cohérents avec l'index), on ne réindexe pas à l'aveugle : code de retour 3. Si autre chose
+est à refaire, la réindexation est tentée : elle échoue (code 1) tant que le service IA reste
+injoignable ou en erreur. C'est ce que la problématique appelle « un besoin de réentraînement » :
+ici, un besoin de réindexation, détecté et nommé.
+
 ## En pratique
 
 ```bash
 python -m assistant status                                # l'index est-il encore valable ?
+python -m assistant index --if-stale                      # le reconstruire seulement s'il ne l'est plus
 python -m assistant snapshot record reference             # figer le comportement
 # … changer une chose : prompt, modèle, découpage, seuil …
 python -m assistant snapshot record candidat

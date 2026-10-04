@@ -118,6 +118,32 @@ class CachedEmbedderTest(unittest.TestCase):
         cached.embed_query("télétravail")
         self.assertEqual((len(inner.calls), cached.hits), (2, 1))
 
+    def test_vectors_of_another_dimension_are_not_kept(self):
+        """Même nom de modèle, autre dimension (réglage du moteur changé) : rien à garder pour cet index."""
+        inner, index = KeywordEmbedder(), manifest(dimension=16)
+        cached = CachedEmbedder(inner, current_index=lambda: index)
+        cached.embed_query("télétravail")
+        cached.embed_query("télétravail")
+        self.assertEqual((len(inner.calls), cached.hits), (2, 0))
+
+    def test_a_vector_computed_for_the_previous_index_is_not_kept_for_the_new_one(self):
+        """Réindexé avec un autre modèle pendant l'appel au service : le vecteur de l'ancien modèle
+        n'entre pas dans le cache du nouvel index, sinon la question y resterait refusée (409)."""
+        current = {"index": manifest("modele-a")}
+
+        class ReindexedDuringTheCall(KeywordEmbedder):
+            def embed_query(self, text):
+                batch = super().embed_query(text)
+                if len(self.calls) == 1:   # une autre requête voit déjà le nouvel index et le nouveau modèle
+                    self.model, current["index"] = "modele-b", manifest("modele-b")
+                    cached.embed_query("congés")
+                return batch
+
+        inner = ReindexedDuringTheCall("modele-a")
+        cached = CachedEmbedder(inner, current_index=lambda: current["index"])
+        self.assertEqual(cached.embed_query("télétravail").model, "modele-a")   # calculé pour l'ancien index
+        self.assertEqual(cached.embed_query("télétravail").model, "modele-b")
+
     def test_the_oldest_question_leaves_first(self):
         inner, index = KeywordEmbedder(), manifest()
         cached = CachedEmbedder(inner, current_index=lambda: index, max_entries=1)

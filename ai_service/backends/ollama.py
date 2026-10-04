@@ -31,14 +31,18 @@ class _OllamaModel:
         relue à chaque appel : un `ollama pull` qui la change change l'identifiant, et
         l'application le détecte sans redémarrer le service. Sans empreinte, pas
         d'identifiant."""
-        installed = _call(self, "GET", "/api/tags", None, timeout=10).get("models", [])
+        tags = _call(self, "GET", "/api/tags", None, timeout=10)
         wanted = _canonical(self.model)
-        for entry in installed:
-            if wanted in (_canonical(entry.get("name") or ""), _canonical(entry.get("model") or "")):
-                digest = str(entry.get("digest") or "")[:12]
-                if digest:
-                    return f"ollama:{self.model}@{digest}"
-        names = ", ".join(str(entry.get("name")) for entry in installed) or "aucun"
+        try:
+            installed = tags.get("models", [])
+            for entry in installed:
+                if wanted in (_canonical(entry.get("name") or ""), _canonical(entry.get("model") or "")):
+                    digest = str(entry.get("digest") or "")[:12]
+                    if digest:
+                        return f"ollama:{self.model}@{digest}"
+            names = ", ".join(str(entry.get("name")) for entry in installed) or "aucun"
+        except (AttributeError, TypeError):   # pas la forme d'Ollama (proxy, mauvaise base_url) : toujours pareil
+            raise BackendError(f"Réponse /api/tags inattendue : {str(tags)[:300]}", retryable=False) from None
         raise BackendError(
             f"empreinte de {self.model} introuvable dans {self.base_url}/api/tags "
             f"(modèles installés : {names}) : le modèle est-il téléchargé (ollama pull {self.model}) ?",
@@ -79,8 +83,8 @@ class OllamaEmbeddingBackend(_OllamaModel):
     def embed(self, texts: Sequence[str]) -> Vectors:
         model_id, data = self._identified(
             lambda: _call(self, "POST", "/api/embed", {"model": self.model, "input": list(texts)}))
-        vectors = data.get("embeddings")
-        if not vectors or len(vectors) != len(texts):
+        vectors = data.get("embeddings") if isinstance(data, dict) else None
+        if not isinstance(vectors, list) or len(vectors) != len(texts) or not all(isinstance(v, list) for v in vectors):
             raise BackendError(f"Ollama n'a pas renvoyé {len(texts)} embeddings", retryable=False)
         return Vectors(model_id=model_id, dimension=len(vectors[0]), vectors=vectors)
 
@@ -126,9 +130,9 @@ class OllamaGenerationBackend(_OllamaModel):
             payload["keep_alive"] = self.keep_alive
         model_id, data = self._identified(lambda: _call(self, "POST", "/api/chat", payload))
         try:
-            content = data["message"]["content"]
-        except (KeyError, TypeError):
+            content = data["message"]["content"].strip()
+        except (KeyError, TypeError, AttributeError):
             raise BackendError(f"Réponse Ollama inattendue : {str(data)[:300]}", retryable=False) from None
         # `message.thinking`, renvoyé à part par Ollama, est ignoré ; les balises <think> laissées
         # dans la réponse sont retirées par le registre, quel que soit le moteur.
-        return model_id, content.strip()
+        return model_id, content

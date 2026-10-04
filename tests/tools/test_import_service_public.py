@@ -82,5 +82,6 @@ class ImportServicePublicTest(unittest.TestCase):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             main(["--limit", "5"])
 
+
 if __name__ == "__main__":
     unittest.main()

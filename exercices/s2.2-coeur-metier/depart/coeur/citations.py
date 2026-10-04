@@ -8,7 +8,9 @@ Format des citations : [1], [2, 3] ou [2,3]. Comportement attendu (voir
 tests/test_domain.py) :
 - `cited` : les numéros valides (entre 1 et passage_count), dans l'ordre
   d'apparition, sans doublon ;
-- `invalid` : les numéros hors de cet intervalle ;
+- `invalid` : les numéros hors de cet intervalle, nombres trop grands compris (des
+  milliers de chiffres, que int() refuse de convertir) : une citation invalide, pas une
+  exception ;
 - `is_valid` : au moins une citation valide ET aucune citation invalide.
 """
 

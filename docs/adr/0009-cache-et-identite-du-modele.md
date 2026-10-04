@@ -1,6 +1,6 @@
 # ADR 0009 — Le cache d'embeddings dérive de l'index ; l'identité d'un modèle Ollama est relue à chaque appel
 
-**Date** : 21/09/2026 · **Statut** : acceptée · complète les ADR 0003 et 0008
+**Date** : 21/09/2026 · **Statut** : acceptée · complète les ADR 0003 et 0008 · erratum du 01/10/2026 (en fin de document)
 
 ## Contexte
 
@@ -56,3 +56,19 @@ construit avec un autre modèle est une erreur ») :
   veut précisément éviter.
 - Supprimer le cache : c'est l'exemple de décorateur technique de la séquence 4.1, et la leçon
   « un cache est un artefact dérivé » vaut d'être montrée plutôt qu'évitée.
+
+## Erratum (01/10/2026)
+
+Deux faits énoncés ci-dessus sont faux.
+
+- Contexte : un redémarrage ne suffisait pas. La réindexation faite dans `serve` reprenait les
+  anciens vecteurs dans le cache et les écrivait sur le disque : l'index périmé était persisté.
+  Après un redémarrage, toutes les questions, même celles déjà posées, restaient refusées (409),
+  jusqu'à une réindexation faite par un processus au cache vide (`index` en ligne de commande, ou
+  `serve` redémarré). L'artefact dérivé, une fois écrit, survivait au processus qui l'avait produit.
+- Conséquences : la garantie « une question contrôle le modèle sur l'index même qu'elle
+  interroge » ne tenait pas. `SearchPassages` relisait le manifeste après la recherche : un index
+  remplacé puis rétabli pendant la recherche (A, puis B, puis A) passait inaperçu, et la réponse
+  citait des passages de B sous la trace de A. Désormais, l'index vérifie son identifiant au moment
+  même de la recherche (`search(…, index_id)`, sinon `IndexReplacedError`), et `SearchPassages`
+  recommence alors une fois.

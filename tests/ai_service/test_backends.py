@@ -1,17 +1,20 @@
 import importlib.util
 import math
 import unittest
+from unittest import mock
 
+from ai_service.backends import ollama
 from ai_service.backends.base import BackendError
 from ai_service.backends.extractive import ExtractiveGenerationBackend
 from ai_service.backends.hashing import HashingEmbeddingBackend
+from ai_service.backends.http_json import request_json
 from ai_service.backends.ollama import OllamaEmbeddingBackend, OllamaGenerationBackend
 from ai_service.backends.openai_compatible import (
     OpenAICompatibleEmbeddingBackend, OpenAICompatibleGenerationBackend,
 )
 from ai_service.backends.sentence_transformers_backend import SentenceTransformersEmbeddingBackend
 from ai_service.registry import ConfigError, ModelRegistry, UnknownModelError
-from tests.ai_service.stub_servers import StubServer, ollama_routes, openai_routes
+from tests.ai_service.stub_servers import StubServer, ollama_routes, openai_routes, silent_after
 
 PROMPT = """Passages :
 
@@ -90,16 +93,60 @@ class OllamaBackendTest(unittest.TestCase):
         backend = OllamaGenerationBackend("x", think=False, thinking_tokens=1000)
         self.assertEqual(backend.thinking_tokens, 0)
 
+    def test_the_digest_is_read_with_a_short_timeout(self):
+        """/api/tags répond vite : 10 s y suffisent, et un Ollama figé se voit sans attendre le délai du
+        modèle (120 s pour les embeddings, 300 s pour la génération), qui ne vaut que pour l'inférence."""
+        calls = []
+
+        def recorded(method, url, payload, timeout):
+            calls.append((method, url.removeprefix(stub.url), timeout))
+            return request_json(method, url, payload, timeout)
+
+        with StubServer(ollama_routes()) as stub, mock.patch.object(ollama, "request_json", recorded):
+            OllamaEmbeddingBackend("nomic-embed-text", base_url=stub.url).embed(["a"])
+            OllamaGenerationBackend("qwen3:1.7b", base_url=stub.url).generate("s", "p", 0.2, 10, None)
+        self.assertEqual(calls, [("GET", "/api/tags", 10), ("POST", "/api/embed", 120), ("GET", "/api/tags", 10),
+                                 ("GET", "/api/tags", 10), ("POST", "/api/chat", 300), ("GET", "/api/tags", 10)])
+
     def test_unreachable_ollama_is_a_backend_error(self):
-        with self.assertRaises(BackendError) as caught:
+        # Le refus simulé là où il naît (socket.create_connection) : sous Windows, un vrai refus coûte 2 s. Le vrai
+        # refus de ces tests : test_backend_failure_is_502 (test_server.py).
+        refused = mock.patch("socket.create_connection", side_effect=ConnectionRefusedError("connexion refusée (simulée)"))
+        with refused, self.assertRaises(BackendError) as caught:
             OllamaEmbeddingBackend("x", base_url="http://127.0.0.1:1", timeout=2).embed(["a"])
         self.assertTrue(caught.exception.retryable)   # Ollama peut revenir : réessayer a un sens
 
     def test_a_refusal_by_the_engine_is_not_worth_retrying(self):
-        routes = ollama_routes(tags=lambda: [{"name": "bge-m3:latest", "digest": "0123456789ab0000"}])
-        routes[("POST", "/api/embed")] = lambda body: (404, {"error": "model not found"})
-        with StubServer(routes) as stub, self.assertRaises(BackendError) as caught:
-            OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a"])
+        """4xx : le moteur refuse, réessayer n'y changera rien ; sauf 408 (délai dépassé) et 429 (trop
+        de requêtes), qui disent justement de réessayer plus tard."""
+        for status, retryable in ((400, False), (404, False), (408, True), (429, True), (500, True), (503, True)):
+            routes = ollama_routes(tags=lambda: [{"name": "bge-m3:latest", "digest": "0123456789ab0000"}])
+            routes[("POST", "/api/embed")] = lambda body, status=status: (status, {"error": "model not found"})
+            with self.subTest(status), StubServer(routes) as stub:
+                with self.assertRaises(BackendError) as caught:
+                    OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a"])
+                self.assertEqual(caught.exception.retryable, retryable)
+
+    def test_an_answer_not_shaped_like_ollama_is_a_definitive_error(self):
+        """Proxy ou mauvaise base_url : une BackendError qui le dit, pas un AttributeError (500)."""
+        installed = [{"name": "bge-m3:latest", "digest": "0123456789ab0000"}]
+        cases = {
+            "/api/tags en liste": {("GET", "/api/tags"): lambda body: (200, [])},
+            "/api/tags sans liste": {("GET", "/api/tags"): lambda body: (200, {"models": None})},
+            "modèle qui n'est pas un objet": {("GET", "/api/tags"): lambda body: (200, {"models": ["bge-m3"]})},
+            "/api/embed en liste": {("POST", "/api/embed"): lambda body: (200, [[0.1], [0.2]])},
+            "vecteurs à plat": {("POST", "/api/embed"): lambda body: (200, {"embeddings": [0.1, 0.2]})},
+            "vecteurs en moins": {("POST", "/api/embed"): lambda body: (200, {"embeddings": [[0.1]]})},
+        }
+        for case, overrides in cases.items():
+            with self.subTest(case), StubServer({**ollama_routes(tags=lambda: installed), **overrides}) as stub:
+                with self.assertRaises(BackendError) as caught:
+                    OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a", "b"])
+                self.assertFalse(caught.exception.retryable)   # le moteur répondra toujours pareil
+        chat = {**ollama_routes(tags=lambda: installed),
+                ("POST", "/api/chat"): lambda body: (200, {"message": {"content": 42}})}
+        with StubServer(chat) as stub, self.assertRaises(BackendError) as caught:
+            OllamaGenerationBackend("bge-m3", base_url=stub.url).generate("s", "p", 0.2, 10, None)
         self.assertFalse(caught.exception.retryable)
 
     def test_a_weights_update_is_seen_without_restarting_the_service(self):
@@ -136,6 +183,7 @@ class OllamaBackendTest(unittest.TestCase):
                 with StubServer(routes) as stub, self.assertRaises(BackendError) as caught:
                     call(stub.url)
                 self.assertIn("a changé pendant l'appel", str(caught.exception))
+                self.assertTrue(caught.exception.retryable)   # le contrat le promet : il suffit de réessayer
 
     def test_no_digest_no_identifier(self):
         """Sans empreinte, on ne peut pas rattacher le résultat à un modèle : erreur, pas d'appel."""
@@ -163,6 +211,10 @@ class OllamaBackendTest(unittest.TestCase):
                 with self.subTest(name):
                     model_id = OllamaEmbeddingBackend(name, base_url=stub.url).embed(["a"]).model_id
                     self.assertEqual(model_id, f"ollama:{name}@0123456789ab")
+        only_model = [{"model": "bge-m3:latest", "digest": "0123456789ab0000"}]   # sans « name » : « model » suffit
+        with StubServer(ollama_routes(tags=lambda: only_model)) as stub:
+            self.assertEqual(OllamaEmbeddingBackend("bge-m3", base_url=stub.url).embed(["a"]).model_id,
+                             "ollama:bge-m3@0123456789ab")
 
 
 class SentenceTransformersBackendTest(unittest.TestCase):
@@ -188,6 +240,37 @@ class OpenAICompatibleBackendTest(unittest.TestCase):
         self.assertEqual(text, "Réponse [1]")
         self.assertNotIn("seed", body)
 
+    def test_a_cut_or_non_http_answer_is_a_backend_error(self):
+        """Un moteur coupé en pleine réponse peut réussir au prochain essai ; un service qui ne parle
+        pas HTTP (base_url vers autre chose) répondra toujours pareil. Dans les deux cas : 502, pas 500."""
+        cases = {
+            "réponse coupée": (b"HTTP/1.0 200 OK\r\nContent-Length: 500\r\n\r\n" + b'{"data": [', True),
+            "pas du HTTP": (b"garbage-not-http\r\n", False),
+        }
+        for case, (answer, retryable) in cases.items():
+            with self.subTest(case), StubServer({("POST", "/v1/embeddings"): lambda body, answer=answer: answer}) as stub:
+                with self.assertRaises(BackendError) as caught:
+                    OpenAICompatibleEmbeddingBackend("m", base_url=stub.url + "/v1").embed(["a"])
+                self.assertEqual(caught.exception.retryable, retryable)
+
+    def test_an_error_that_stops_or_is_cut_in_its_body_is_retryable(self):
+        """Le moteur envoie ses en-têtes d'erreur, puis se tait (délai dépassé) ou coupe : comme au milieu
+        d'une réponse 200, une BackendError réessayable (502 backend_error), pas une exception de la
+        bibliothèque standard (500, avec sa pile)."""
+        error = b"HTTP/1.1 500 Erreur\r\nContent-Length: 100\r\n\r\n{"
+        cases = {
+            "silence": (error, False, "injoignable : timed out"),
+            "coupure": (error, True, "a coupé sa réponse : IncompleteRead("),
+            "coupure en morceaux": (b"HTTP/1.1 500 Erreur\r\nTransfer-Encoding: chunked\r\n\r\n10\r\n{", True,
+                                    "a coupé sa réponse : IncompleteRead("),
+        }
+        for case, (start, cut, message) in cases.items():
+            with self.subTest(case), silent_after(start, cut) as url:
+                with self.assertRaises(BackendError) as caught:
+                    OpenAICompatibleEmbeddingBackend("m", base_url=url + "/v1", timeout=0.5).embed(["a"])
+                self.assertIn(f"{url}/v1/embeddings {message}", str(caught.exception))
+                self.assertTrue(caught.exception.retryable)
+
 
 class RegistryTest(unittest.TestCase):
     def test_prefixes_are_applied_by_the_service_not_the_application(self):
@@ -205,11 +288,16 @@ class RegistryTest(unittest.TestCase):
             return registry.embedding("e5").embed(["bonjour"], "query").model_id
 
         plain = model_id()
-        with_prefixes = model_id(query_prefix="query: ", document_prefix="passage: ")
-        other_prefixes = model_id(query_prefix="search_query: ", document_prefix="passage: ")
+        variants = [
+            model_id(query_prefix="query: ", document_prefix="passage: "),
+            model_id(query_prefix="search_query: ", document_prefix="passage: "),
+            model_id(query_prefix="query: ", document_prefix="document: "),   # celui des documents façonne l'index
+            model_id(query_prefix="query: "),                                 # requête seule, comme mxbai
+            model_id(document_prefix="passage: "),
+        ]
         self.assertEqual(plain, "hashing-16-stem6")
-        self.assertEqual(len({plain, with_prefixes, other_prefixes}), 3)
-        self.assertTrue(with_prefixes.startswith("hashing-16-stem6+prefixes-"))
+        self.assertEqual(len({plain, *variants}), 6)
+        self.assertTrue(all(v.startswith("hashing-16-stem6+prefixes-") for v in variants))
 
     def test_reasoning_tags_are_removed_whatever_the_engine(self):
         """Une particularité de modèle (qwen3…), pas de moteur : Ollama comme serveur compatible OpenAI."""

@@ -7,6 +7,8 @@ dans les fichiers de configuration), jamais dans le domaine.
 
 from __future__ import annotations
 
+import json
+import math
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -22,20 +24,29 @@ from assistant.application.ports import (
 from assistant.application.search_passages import SearchPassages
 from assistant.application.snapshots import RecordSnapshot
 from assistant.application.status import CheckStatus
+from assistant.domain.access import PUBLIC_GROUP
 from assistant.domain.model import User
 from assistant.infrastructure.clock import SystemClock
 from assistant.infrastructure.decorators import (
     CachedEmbedder, LoggingEmbedder, LoggingGenerator, RetryingEmbedder, RetryingGenerator,
 )
 from assistant.infrastructure.http_ai_client import HttpEmbedder, HttpGenerator
+from assistant.infrastructure.json_text import MAX_DIGITS, parse as parse_json
 from assistant.infrastructure.markdown_corpus import MarkdownCorpus
 from assistant.infrastructure.prompt_files import FilePromptRepository
 from assistant.infrastructure.snapshot_files import JsonSnapshotStore
 from assistant.infrastructure.splitter import ParagraphSplitter
+from assistant.infrastructure.text_files import decode_utf8, read_utf8
 from assistant.infrastructure.vector_index import JsonVectorIndex
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+
+def config_file(path: str | Path | None = None) -> Path:
+    """Le fichier de configuration à lire : `path` (--config), sinon la variable ASSISTANT_CONFIG, sinon
+    config/app.toml sous la racine du projet."""
+    return Path(path or os.environ.get("ASSISTANT_CONFIG", PROJECT_ROOT / "config/app.toml"))
 
 
 class UnknownUserError(LookupError):
@@ -54,6 +65,8 @@ DECORATOR_TYPES: dict[str, type] = {
 
 # Clés attendues, section par section (None : le premier niveau). Même raison : « topk = 8 »
 # ou « max_char = 300 » ne doivent pas laisser la valeur par défaut s'appliquer sans rien dire.
+# TOML a de vrais commentaires : « _note = … » est une clé inconnue comme une autre (les jeux de
+# questions, en JSON, faute de commentaires, acceptent les clés « _ »).
 KNOWN_KEYS: dict[str | None, set[str]] = {
     None: {"ai_service", "corpus", "index", "snapshots", "splitter", "retrieval", "generation", "decorators", "users"},
     "ai_service": {"base_url", "embedding_model", "generation_model", "timeout_seconds"},
@@ -65,6 +78,14 @@ KNOWN_KEYS: dict[str | None, set[str]] = {
     "generation": {"prompt", "temperature", "max_tokens", "max_attempts", "seed"},
     "decorators": set(DECORATOR_TYPES),
 }
+
+# Délai maximal d'un appel au service IA : un jour, bien au-delà d'une génération lente. Sans
+# borne, une valeur absurde ferait échouer le client HTTP plus tard, sans nommer fichier ni clé.
+MAX_TIMEOUT_SECONDS = 86_400
+
+# Le type attendu, nommé en français. La valeur fautive est citée en JSON compact (_show) : true et non True,
+# une chaîne entre guillemets, qu'on distingue d'un nombre.
+KIND_NAMES: dict[type, str] = {bool: "un booléen", int: "un entier", float: "un nombre", str: "une chaîne"}
 
 
 def _check_known_keys(raw: dict[str, Any], path: Path) -> None:
@@ -78,30 +99,100 @@ def _check_known_keys(raw: dict[str, Any], path: Path) -> None:
         unknown = sorted(set(values) - known)
         if unknown:
             where = path if name is None else f"{path} [{name}]"
-            raise ConfigError(f"{where} : clé(s) inconnue(s) {unknown} (connues : {sorted(known)})")
+            raise ConfigError(f"{where} : clé(s) inconnue(s) [{', '.join(unknown)}] "
+                              f"(connues : {', '.join(sorted(known))})")
 
 
-def _section(raw: dict[str, Any], name: str, path: Path, required: bool = True) -> dict[str, Any]:
+def _section(raw: dict[str, Any], name: str, path: Path, required: bool = True,
+             parent: str | None = None) -> dict[str, Any]:
     section = raw.get(name, {} if not required else None)
     if not isinstance(section, dict):
-        raise ConfigError(f"{path} : section [{name}] {'absente' if section is None else 'mal formée'}")
+        label = name if parent is None else f"{parent}.{name}"
+        raise ConfigError(f"{path} : section [{label}] {'absente' if section is None else 'mal formée'}")
     return section
+
+
+# Un entier de plus de 4300 chiffres : int() refuse de le convertir, et tomllib lève alors une ValueError de CPython,
+# en anglais, sans dire où ; lu en hexadécimal, en octal ou en binaire, tomllib le convertit, mais str() refuse de
+# l'écrire. Refusé avec un message en français, comme une erreur de syntaxe (« TOML invalide — … »).
+_HUGE = 10 ** MAX_DIGITS
+
+
+def _load_toml(text: str) -> dict[str, Any]:
+    """tomllib.loads ; ValueError, avec un message en français, pour un entier de plus de 4300 chiffres."""
+    try:
+        raw = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        raise
+    except ValueError:   # hors TOMLDecodeError, seul int() en lève
+        raw = None
+    if raw is None or _has_huge_integer(raw):
+        raise ValueError(f"TOML invalide — nombre entier de plus de {MAX_DIGITS} chiffres")
+    return raw
+
+
+def _has_huge_integer(value: Any) -> bool:
+    """Un entier lu en hexadécimal, en octal ou en binaire, de plus de 4300 chiffres décimaux. Une boucle, pas
+    any(…) : un appel par niveau, pour que des tableaux ou des tables en ligne butent sur la limite de tomllib avant
+    celle de cette fonction (sous 3.11 aussi). Des en-têtes [a.a.…], que tomllib lit sans récursion, butent ici : load
+    le dit de même (trop de niveaux d'imbrication)."""
+    if isinstance(value, dict):
+        value = list(value.values())
+    if isinstance(value, list):
+        for item in value:
+            if _has_huge_integer(item):
+                return True
+        return False
+    return isinstance(value, int) and value >= _HUGE   # un booléen vaut au plus 1
+
+
+def _real(value: int) -> float:
+    """Un entier là où un réel est attendu : l'infini, du signe de l'entier, au-delà du plus grand réel
+    (float() lèverait OverflowError, une trace d'erreur)."""
+    try:
+        return float(value)
+    except OverflowError:
+        return math.inf if value > 0 else -math.inf
+
+
+def _show(value: Any) -> str:
+    """La valeur en JSON compact, accents écrits tels quels (ensure_ascii=False)."""
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def _range(minimum: float | None, maximum: float | None) -> str:
+    """Toute borne haute va avec une borne basse (délai, recouvrement, seuils, température)."""
+    if maximum is None:
+        return f"doit valoir au moins {minimum}"
+    return f"doit être compris entre {minimum} et {maximum}"
 
 
 def _value(section: dict[str, Any], key: str, where: str, kind: type, default: Any = ...,
            minimum: float | None = None, maximum: float | None = None) -> Any:
-    if key not in section:
-        if default is ...:
-            raise ConfigError(f"{where} : clé « {key} » obligatoire")
-        return default
-    value = section[key]
-    if kind is float and isinstance(value, int) and not isinstance(value, bool):
-        value = float(value)
-    if not isinstance(value, kind) or (isinstance(value, bool) and kind is not bool):
-        raise ConfigError(f"{where} : « {key} » doit être de type {kind.__name__}, pas {value!r}")
-    if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
-        raise ConfigError(f"{where} : « {key} » = {value} hors de [{minimum}, {maximum}]")
+    """Valeur typée et bornée. La valeur par défaut est bornée elle aussi : le recouvrement par
+    défaut ne convient pas à tout max_chars. `not value >= minimum` refuse aussi nan (TOML)."""
+    if key in section:
+        value, shown = section[key], _show(section[key])
+        if kind is float and isinstance(value, int) and not isinstance(value, bool):
+            value = _real(value)
+        if not isinstance(value, kind) or (isinstance(value, bool) and kind is not bool):
+            raise ConfigError(f"{where} : « {key} » doit être {KIND_NAMES[kind]}, pas {shown}")
+    elif default is ...:
+        raise ConfigError(f"{where} : clé « {key} » obligatoire")
+    elif default is None:
+        return None
+    else:
+        value, shown = default, f"{_show(default)} (valeur par défaut)"
+    if (minimum is not None and not value >= minimum) or (maximum is not None and not value <= maximum):
+        raise ConfigError(f"{where} : « {key} » = {shown}, {_range(minimum, maximum)}")
     return value
+
+
+def _groups(user: dict[str, Any], where: str) -> frozenset[str]:
+    groups = user.get("groups", [PUBLIC_GROUP])
+    if not isinstance(groups, list) or not all(isinstance(group, str) for group in groups):
+        raise ConfigError(f"{where} : « groups » doit être une liste de chaînes, pas {_show(groups)}")
+    return frozenset(groups)
 
 
 @dataclass
@@ -126,12 +217,16 @@ class AppConfig:
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "AppConfig":
-        path = Path(path or os.environ.get("ASSISTANT_CONFIG", PROJECT_ROOT / "config/app.toml"))
+        path = config_file(path)
         try:
-            with open(path, "rb") as handle:
-                raw = tomllib.load(handle)
+            # UTF-8 strict, BOM accepté, comme les autres fichiers lus (text_files).
+            raw = _load_toml(decode_utf8(path.read_bytes()))
         except tomllib.TOMLDecodeError as error:
             raise ConfigError(f"{path} : TOML invalide — {error}") from error
+        except RecursionError:   # des centaines de niveaux d'imbrication : tomllib, ou _has_huge_integer, abandonne
+            raise ConfigError(f"{path} : TOML invalide — trop de niveaux d'imbrication") from None
+        except ValueError as error:   # pas en UTF-8 (l'octet fautif et sa position), ou entier de plus de 4300 chiffres
+            raise ConfigError(f"{path} : {error}") from error
         base = PROJECT_ROOT  # chemins relatifs à la racine du projet (ou absolus)
         _check_known_keys(raw, path)
         ai = _section(raw, "ai_service", path)
@@ -142,21 +237,32 @@ class AppConfig:
             _value(decorators, key, f"{path} [decorators]", kind, default=None,
                    minimum={"max_output_chars": 1, "retries": 0}.get(key))
         splitter = _section(raw, "splitter", path, required=False)
-        for key, kind, minimum in (("max_chars", int, 1), ("overlap_chars", int, 0), ("include_title", bool, None)):
-            _value(splitter, key, f"{path} [splitter]", kind, default=None, minimum=minimum)
-        min_scores = _section(retrieval, "min_score", path, required=False)
+        # Bornes de ParagraphSplitter, vérifiées ici pour nommer le fichier et la clé ; le
+        # recouvrement, même par défaut, doit rester sous la moitié de max_chars.
+        max_chars = _value(splitter, "max_chars", f"{path} [splitter]", int, 800, minimum=100)
+        splitter_settings = {
+            "max_chars": max_chars,
+            "overlap_chars": _value(splitter, "overlap_chars", f"{path} [splitter]", int, 120,
+                                    minimum=0, maximum=max_chars // 2 - 1),
+            "include_title": _value(splitter, "include_title", f"{path} [splitter]", bool, True),
+        }
+        min_scores = _section(retrieval, "min_score", path, required=False, parent="retrieval")
         users = _section(raw, "users", path, required=False)
         seed = _value(gen, "seed", f"{path} [generation]", int, default=None)
+        # AI_SERVICE_URL remplace l'adresse, mais base_url reste vérifiée : même verdict sur le fichier
+        # quel que soit l'environnement.
+        base_url = _value(ai, "base_url", f"{path} [ai_service]", str)
         return cls(
-            ai_base_url=os.environ.get("AI_SERVICE_URL", _value(ai, "base_url", f"{path} [ai_service]", str)),
+            ai_base_url=os.environ.get("AI_SERVICE_URL", base_url),
             embedding_model=_value(ai, "embedding_model", f"{path} [ai_service]", str),
             generation_model=_value(ai, "generation_model", f"{path} [ai_service]", str),
-            timeout=_value(ai, "timeout_seconds", f"{path} [ai_service]", float, 300.0, minimum=1),
+            timeout=_value(ai, "timeout_seconds", f"{path} [ai_service]", float, 300.0,
+                           minimum=1, maximum=MAX_TIMEOUT_SECONDS),
             corpus_dir=base / _value(_section(raw, "corpus", path), "directory", f"{path} [corpus]", str),
             index_path=base / _value(_section(raw, "index", path), "path", f"{path} [index]", str),
             snapshots_dir=base / _value(_section(raw, "snapshots", path, required=False), "directory",
                                         f"{path} [snapshots]", str, "eval/instantanes"),
-            splitter=dict(splitter),
+            splitter=splitter_settings,
             top_k=_value(retrieval, "top_k", f"{path} [retrieval]", int, 4, minimum=1),
             min_scores={k: _value(min_scores, k, f"{path} [retrieval.min_score]", float, minimum=-1, maximum=1)
                         for k in min_scores},
@@ -166,10 +272,8 @@ class AppConfig:
             seed=seed,
             prompt_name=_value(gen, "prompt", f"{path} [generation]", str, "answer"),
             decorators=dict(decorators),
-            users={
-                name: frozenset(_value(_section(users, name, path), "groups", f"{path} [users.{name}]", list, ["tous"]))
-                for name in users
-            },
+            users={name: _groups(_section(users, name, path, parent="users"), f"{path} [users.{name}]")
+                   for name in users},
         )
 
     def min_score_for(self, embedding_model: str) -> float:
@@ -183,10 +287,29 @@ class AppConfig:
 
     def user(self, name: str) -> User:
         if name not in self.users:
-            raise UnknownUserError(
-                f"utilisateur inconnu : {name} (connus : {sorted(self.users)})"
+            raise UnknownUserError(   # « (connus : alice, bruno, claire) » : les noms, sans crochets ni guillemets
+                f"utilisateur inconnu : {name} (connus : {', '.join(sorted(self.users))})"
             )
         return User(id=name, groups=self.users[name])
+
+
+def read_json(path: str | Path) -> Any:
+    """Un fichier JSON que lit l'interface (jeu de questions), lu comme ceux de l'infrastructure :
+    UTF-8 strict (BOM accepté) et JSON strict (clé en double, NaN, entier de plus de 4300 chiffres,
+    plus de 900 niveaux : ValueError), chaînes comprises : un « \\ud800 » isolé n'est pas du texte (il ne
+    s'écrit pas en UTF-8). L'interface reçoit des valeurs, sans nommer l'infrastructure ;
+    le message ne nomme pas le fichier : l'appelant le préfixe."""
+    return parse_json(read_utf8(Path(path)), strings=True)
+
+
+def read_json_text(text: str) -> Any:
+    """Un texte JSON que lit l'interface (corps d'une requête à l'API HTTP, réponse du service IA à GET
+    /v1/models), lu aussi strictement que les fichiers, par le même contrôleur : clé en double, NaN,
+    entier de plus de 4300 chiffres, plus de 900 niveaux, chaîne qui n'est pas du texte : ValueError
+    (json_text). `text` vient d'un décodage UTF-8 strict des octets reçus (decode("utf-8-sig")), comme
+    le suppose json_text.parse, qui ne parcourt les chaînes que si le texte contient un échappement
+    « \\ud800 » à « \\udfff »."""
+    return parse_json(text, strings=True)
 
 
 @dataclass

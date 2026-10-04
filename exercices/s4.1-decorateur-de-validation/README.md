@@ -21,7 +21,13 @@ Ajouter une vérification **déterministe** de la forme de la sortie, **sans mod
 
 1. Écrire la règle dans le domaine : `assistant/domain/output_rules.py`, fonction
    `check_output(text, max_chars) -> OutputCheck`, qui signale une réponse vide, trop longue,
-   dans une autre langue que le français, ou qui contient un raisonnement déversé.
+   dans une autre langue que le français, ou qui contient un raisonnement déversé. Comme dans la
+   version C#, les blancs rognés, et ceux qui séparent les mots d'un marqueur, sont ceux de .NET :
+   ceux de `str.isspace()` sans les séparateurs `\x1c` à `\x1f` (test
+   `test_the_blanks_are_those_of_dotnet`). Ils sont déjà définis, une seule fois, dans
+   `assistant/domain/blanks.py` (fourni) : importez de ce module `WHITESPACE` (pour `str.strip`) et
+   `BLANK` (dans une expression régulière) plutôt que de les recopier (test
+   `test_the_blanks_are_defined_once_in_the_domain`, dans `tests/unit/test_adapters.py`).
 2. Écrire un **décorateur** du port `Generator` : `assistant/application/guards.py`, classe
    `OutputValidatingGenerator(inner, max_chars)`. Il appelle le générateur enveloppé, vérifie sa
    sortie et lève `ModelOutputRejectedError` (à ajouter dans `application/errors.py`) quand la
@@ -35,8 +41,8 @@ Ajouter une vérification **déterministe** de la forme de la sortie, **sans mod
    n'importent `infrastructure/`.
 
 Les tests fournis (`tests/unit/test_output_rules.py`, `tests/unit/test_decorators.py`) doivent
-passer. Point de départ : la branche Git `s4.1-depart` (`git switch s4.1-depart` : ces fichiers de
-test sont présents, le code manque).
+passer. Point de départ : la branche Git `s4.1-depart`, à venir (pas encore créée) ; avec
+`git switch s4.1-depart`, ces fichiers de test seront présents, le code manquera.
 
 ## Questions à se poser en chemin (elles seront reprises en correction)
 
@@ -51,7 +57,7 @@ test sont présents, le code manque).
 
 ## Corrigé
 
-Le corrigé est le code de la branche `main` (étiquette `fil-rouge-2026-09-11`) :
+Le corrigé est le code du dépôt :
 
 | Étape | Fichier | Ce qu'il fait |
 |---|---|---|
@@ -60,7 +66,7 @@ Le corrigé est le code de la branche `main` (étiquette `fil-rouge-2026-09-11`)
 | 2 | `assistant/application/errors.py` | `ModelOutputRejectedError(ApplicationError)` avec `model`, `text`, `problems` |
 | 3 | `assistant/application/ask_question.py` | dans la boucle des tentatives : `except ModelOutputRejectedError as rejected:` → `raw_outputs.append("<rejetée : …> " + texte)`, `continue` |
 | 4 | `assistant/composition.py` | `decorate()` : `if options.get("validate_output", True): generator = OutputValidatingGenerator(generator, max_chars)` ; ordre : tentatives → journal → cache → validation → journal des générations |
-| 5 | `tests/architecture/test_dependency_rule.py` | `test_only_the_composition_root_knows_the_infrastructure` |
+| 5 | `tests/architecture/test_dependency_rule.py` | `test_every_layer_imports_only_what_it_may` |
 
 Réponses aux questions :
 

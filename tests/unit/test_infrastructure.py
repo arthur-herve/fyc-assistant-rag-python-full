@@ -2,8 +2,10 @@ import json
 import os
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
+from assistant.application.errors import PromptNotFoundError
 from assistant.application.ports import IndexManifest, Snapshot, SnapshotEntry
 from assistant.composition import PROMPTS_DIR
 from assistant.domain.model import Chunk
@@ -129,6 +131,14 @@ class JsonVectorIndexTest(unittest.TestCase):
                 with self.assertRaises(IndexUnreadableError):
                     index.manifest()
 
+    def test_a_file_that_is_not_utf8_is_unreadable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "index.json"
+            path.write_bytes(b'{"manifest": "\xff\xfe"}')
+            with self.assertRaises(IndexUnreadableError) as caught:
+                JsonVectorIndex(path).manifest()
+            self.assertIn(f"index illisible ({path})", str(caught.exception))
+
     def test_an_index_rebuilt_by_another_process_is_seen(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "index.json"
@@ -191,6 +201,31 @@ class PromptRepositoryTest(unittest.TestCase):
         self.assertIn("Q ?", rendered)
         self.assertIn("[1] Titre", rendered)
 
+    def test_the_line_endings_of_the_file_change_nothing(self):
+        """LF, CRLF (Windows, ou git qui convertit à l'extraction) ou CR seul : read_utf8, en mode texte, les ramène
+        à LF. Le prompt livré garde sa version, empreinte comprise : celle de la version C#."""
+        text = (PROMPTS_DIR / "answer.toml").read_text(encoding="utf-8")
+        for newline in ("\n", "\r\n", "\r"):
+            with self.subTest(newline=newline), tempfile.TemporaryDirectory() as tmp:
+                Path(tmp, "answer.toml").write_bytes(text.replace("\n", newline).encode("utf-8"))
+                self.assertEqual(FilePromptRepository(tmp).get("answer").version, "v1+085b70e7")
+
+    def test_an_unknown_prompt_names_its_folder_and_the_known_ones(self):
+        """Un nom mal tapé, ou un dossier absent : le nom, le dossier et les prompts connus (« aucun »), pas
+        « [Errno 2] No such file or directory »."""
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("b", "a-v2", "a"):
+                Path(tmp, f"{name}.toml").write_text('version = "v1"\nsystem = "s"\nuser = "{question}"\n',
+                                                     encoding="utf-8")
+            Path(tmp, "notes.txt").write_text("pas un prompt", encoding="utf-8")
+            Path(tmp, "dossier.toml").mkdir()   # un dossier non plus : des fichiers seulement
+            absent = Path(tmp) / "absent"
+            for directory, known in ((tmp, "a, a-v2, b"), (absent, "aucun")):
+                with self.subTest(directory=directory), self.assertRaises(PromptNotFoundError) as caught:
+                    FilePromptRepository(directory).get("answr")
+                self.assertEqual(str(caught.exception),
+                                 f"prompt introuvable : answr dans {directory} (connus : {known})")
+
 
 class JsonSnapshotStoreTest(unittest.TestCase):
     def test_round_trip_and_listing(self):
@@ -204,6 +239,30 @@ class JsonSnapshotStoreTest(unittest.TestCase):
             self.assertEqual(store.names(), ["ref"])
             with self.assertRaises(SnapshotNotFoundError):
                 store.load("absent")
+
+    def test_an_unknown_snapshot_names_the_known_ones_without_brackets(self):
+        # Un message qui se lit : ni « ['a', 'b'] », ni « [] » pour un dossier vide.
+        snapshot = Snapshot("ref", "2026-09-11T12:00:00+00:00", {}, ())
+        with tempfile.TemporaryDirectory() as tmp:
+            store = JsonSnapshotStore(Path(tmp) / "instantanes")
+            for saved, known in (((), "aucun"), (("ref", "b"), "b, ref")):
+                for name in saved:
+                    store.save(replace(snapshot, name=name))
+                with self.subTest(known=known), self.assertRaises(SnapshotNotFoundError) as caught:
+                    store.load("absent")
+                self.assertEqual(str(caught.exception), f"instantané introuvable : absent (connus : {known})")
+
+    def test_a_folder_named_like_a_snapshot_is_not_one(self):
+        """Seuls les fichiers comptent : un dossier « dossier.json » n'est pas listé, et il est introuvable (sa
+        lecture finissait en « fichier ou dossier inaccessible »)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = JsonSnapshotStore(tmp)
+            store.save(Snapshot("ref", "2026-09-11T12:00:00+00:00", {}, ()))
+            (Path(tmp) / "dossier.json").mkdir()
+            self.assertEqual(store.names(), ["ref"])
+            with self.assertRaises(SnapshotNotFoundError) as caught:
+                store.load("dossier")
+            self.assertEqual(str(caught.exception), "instantané introuvable : dossier (connus : ref)")
 
     def test_rejects_names_that_could_escape_the_directory(self):
         for name in ("../autre", "ref\n"):   # « $ » laisserait passer un saut de ligne final
@@ -244,7 +303,7 @@ class SystemClockTest(unittest.TestCase):
 class PromptRenderingTest(unittest.TestCase):
     def test_only_the_two_variables_are_replaced_in_one_pass(self):
         """Un exemple JSON dans le prompt ne plante pas ; un passage qui contient « {question} »
-        n'est pas substitué une seconde fois (même comportement que la version C#)."""
+        n'est pas substitué une seconde fois."""
         from assistant.application.ports import PromptTemplate
         template = PromptTemplate("n", "v", "s", 'Réponds en JSON {"a": 1}\n{passages}\nQuestion : {question}')
         rendered = template.render(question="Q ?", passages="[1] parle de {question}")
